@@ -93,7 +93,6 @@ def register():
                         "content":
                             {"message": "/register[get]"}
                         })
-    if request.headers['Content-Type'] == 'application/json':
         exist_id = 0
         bad_id = 0
         bad_password = 0
