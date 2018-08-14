@@ -17,55 +17,23 @@ login_manager.init_app(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
 
-passw_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{6,12}\Z(?i)")
-id_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{4,12}\Z(?i)")
+passw_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{6,12}\Z(?i)")  # passwordの認証のための正規表現です
+id_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{4,12}\Z(?i)")  # idの認証のための正規表現です
 
 
-class User(UserMixin, db.Model):
-    __tablename__ = "user"
-    id = db.Column(db.String(16), primary_key=True)
-    name = db.Column(db.String(32))
-    password = db.Column(db.String(32))
+class User(db.Model):
+    __tablename__ = "user"  # tableはuserです
+    id = db.Column(db.String(16), primary_key=True)  # 16文字までのidをprimary_keyにします
+    name = db.Column(db.String(32))  # 32文字までのname(hash化されたもの。)
+    password = db.Column(db.String(128))  # 128文字までのpassword(hash化されたもの。)
 
     def __init__(self, id, name, password):
         self.id = id
         self.name = name
         self.password = password
 
-    def is_authenticated(self):
-        return True
 
-    def is_active(self):
-        return True
-
-    def is_anonymous(self):
-        return False
-
-    def get_id(self):
-        return (self.id)
-
-    def __repr__(self):
-        return '<User %r>' % (self.name)
-
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(user_id)
-
-
-@login_manager.unauthorized_handler
-def unauthorized():
-    return jsonify({"error": 1,
-                    "content":
-                        {"message": "unauthorized"}
-                    })
-
-
-def get_id(self):
-    return self.session_token
-
-
-@app.errorhandler(404)
+@app.errorhandler(404)  # 404のハンドラです
 def page_not_found(e):
     return jsonify({"error": 1,
                     "content":
@@ -73,7 +41,7 @@ def page_not_found(e):
                     })
 
 
-@app.errorhandler(500)
+@app.errorhandler(500)  # 500のハンドラです
 def page_not_found(e):
     return jsonify({"error": 1,
                     "content":
@@ -81,150 +49,174 @@ def page_not_found(e):
                     })
 
 
-@app.route("/")
+def valid_auth(id, pass_):  # idとpass_に合致するユーザーが存在するか検証し、存在するなら返します。
+    return User.query.filter(User.id.in_([id]),
+                             User.password.in_(
+                                 [str(hashlib.sha256(b"%a" % str(pass_)).digest())])).first()
+
+
+@app.route("/")  # ルートディレクトリです
 def main():
-    return None
+    return jsonify({"error": 0,
+                    "content":
+                        {"message": "/[get]"}
+                    })
 
 
-@app.route('/register', methods=['GET', 'POST'])
+@app.route('/register', methods=['GET', 'POST'])  # アカウント登録用のディレクトリです
 def register():
     if request.method == "GET":
         return jsonify({"error": 0,
                         "content":
                             {"message": "/register[get]"}
                         })
-    if request.headers['Content-Type'] == 'application/json':
-        exist_id = 0
-        bad_id = 0
-        bad_password = 0
-        password_confirm_does_not_match = 0
+        exist_id = 0  # アカウントの存在
+        authenticated = 0  # すでにログインしているか
+        bad_id = 0  # idのよしあし
+        bad_name = 0  # nameのよしあし
+        bad_password = 0  # passwordのよしあし
+        password_confirm_does_not_match = 0  # passwordのコンファームが合致しているかどうかです・
         request_json = request.get_json()
+
+        if request_json["authenticated"]:
+            authenticated = 1
         if User.query.filter(User.id.in_([request_json["id"]])):
             exist_id = 1
         if not id_re.match(request_json["id"]):
             bad_id = 1
+        if not 0 < len(request_json["name"]) < 32:
+            bad_name = 1
         if not passw_re.match(request_json["password"]):
             bad_password = 1
         if request_json["password"] != request_json["password_confirm"]:
             password_confirm_does_not_match = 1
-        if exist_id or bad_id or bad_password or password_confirm_does_not_match:
+
+        if exist_id or authenticated or bad_id or bad_name or bad_password or password_confirm_does_not_match:  # エラーがあった場合です
             return jsonify({
                 "error": 1,
                 "content": {
+                    "authentocated": authenticated,
                     "exist_id": exist_id,
                     "bad_id": bad_id,
+                    "bad_name": bad_name,
                     "bad_password": bad_password,
                     "password_confirm_does_not_match": password_confirm_does_not_match
                 }
             })
+
+        user = User(id=request_json["id"], name=request_json["name"],
+                    password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()))
+        db.session.add(user)
+        db.session.commit()  # 無かった場合、登録します。
         return jsonify({
             "error": 0,
             "content": {
-                "logged_id": request_json["id"]
+                "logged_id": request_json["id"],
+                "logged_pass": request_json["password"]
             }
         })
 
-"""
 
-
-@app.route('/login', methods=["GET", "POST"])
+@app.route('/login', methods=["GET", "POST"])  # ログイン用のディレクトリです
 def login():
     if request.method == 'GET':
-        return render_template("login.html")
+        return jsonify({"error": 0,
+                        "content":
+                            {"message": "/login[get]"}
+                        })
 
-    POST_USERID = str(request.form['userid'])
-    POST_PASSWORD = str(hashlib.sha256(b"%a" % str(request.form['password'])).digest())
+    request_json = request.get_json()
 
-    result = Teacher.query.filter(Teacher.userid.in_([POST_USERID]),
-                                  Teacher.password_hash.in_([POST_PASSWORD])).first()
-    if not result:
-        result = Teacher.query.filter(Teacher.email.in_([POST_USERID]),
-                                      Teacher.password_hash.in_([POST_PASSWORD])).first()
-    if result:
-        login_user(result, remember=True)
-        return redirect("/")
-    else:
-        flash('Invalid authentication')
-        return redirect("/login")
-
-
-@app.route("/logout")
-@login_required
-def logout():
-    logout_user()
-    return redirect("/")
-
-
-@app.route('/teacher', methods=['GET', 'POST'])
-@login_required
-def upload():
-    error = False
-    allen = 0
-    del_lim()
-    if request.method == 'POST':
-        tmp = 1
-        for key, item in request.form.items():
-            if key == "all":
-                tmp = 1
-                allen = 1
-                break
-            if key[:5] == "radio":
-                tmp *= int(item)
-        if tmp == 1 and not allen:
-            flash("クラスを選択してください")
-            error = True
-        if not (request.form["to_date"] or request.form["from_date"]):
-            flash("日付を入力してください")
-            error = True
-        if not (request.form["to_class"] or request.form["from_class"]):
-            flash("授業を入力してください")
-            error = True
-        if not (request.form["to_time"] or request.form["from_time"]):
-            flash("限目を入力してください")
-            error = True
-        password_hash = str(hashlib.sha256(b"%a" % str(request.form['password'])).digest())
-        result = Teacher.query.filter(Teacher.userid.in_([current_user.userid]),
-                                      Teacher.password_hash.in_([password_hash])).first()
-        if not result:
-            flash("パスワードを間違っています")
-            error = True
-        if error:
-            return redirect("/teacher")
-        to_class = ""
-        if request.form["from_class"] == request.form["to_class"]:
-            to_class = request.form["to_class"]
-        else:
-            to_class = ""
-        entry = Entry(change_from_class=request.form["from_class"], change_to_class=to_class,
-                      change_from_date=request.form["from_date"], change_to_date=request.form["to_date"],
-                      change_from_time=request.form["from_time"], change_to_time=request.form["to_time"],
-                      change_from_teacher=request.form["from_teacher"], change_to_teacher=request.form["to_teacher"],
-                      remark=request.form["remark"], contributor=current_user.id, target_depart=tmp)
-        db.session.add(entry)
-        db.session.commit()
-        return redirect('/')
-    return render_template("uploadpage.html")
+    result = User.query.filter(User.id.in_([request_json["id"]]),
+                               User.password.in_(
+                                   [str(hashlib.sha256(b"%a" % str(request_json["password"])).digest())])).first()
+    if result and not request_json["authenticated"]:  # ログイン成功時です
+        return jsonify({
+            "error": 0,
+            "content": {
+                "logged_id": request_json["id"],
+                "logged_pass": request_json["password"]
+            }
+        })
+    else:  # 失敗時
+        unexist_id = not bool(User.query.filter(User.id.in_([request_json["id"]])))
+        return jsonify({
+            "error": 1,
+            "content": {
+                "authenticated": request_json["authenticated"],
+                "unexist_id": unexist_id,
+                "invalid_password": not unexist_id
+            }
+        })
 
 
-@app.route('/editself', methods=['GET', 'POST'])
-@login_required
-def editself():
+@app.route("/logout")  # ログアウト用ディレクトリです(何の動作もしないので、正直今のところは必要ないです。
+def logout():  # Userに最終ログアウト時刻的なものをつけるならいると思います。)
+    return jsonify({"error": 0,
+                    "content": {
+                        "message": "/logout[get]"
+                    }
+                    })
+
+
+@app.route('/account_modify', methods=['GET', 'POST'])  # ユーザー情報変更のディレクトリです。
+def account_modify():
     if request.method == "GET":
-        return render_template("editself_tea.html")
-    if request.form["password"] == request.form["conf_password"] and str(hashlib.sha256(
-                    b'%a' % str(request.form['password'])).digest()) == current_user.password_hash:
-        current_user.name = request.form["name"]
-        current_user.email = request.form["email"]
-        current_user.userid = request.form["userid"]
-        if not request.form["name"] or not request.form["email"] or not request.form["userid"]:
-            flash("失敗")
-            return render_template("editself_tea.html")
-        db.session.commit()
-        flash("成功")
-    else:
-        flash("失敗")
-    return render_template("editself_tea.html")
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/account_modify[get]"
+                        }
+                        })
+    not_authenticated = 0
+    exist_id = 0
+    bad_id = 0
+    bad_name = 0
+    bad_password = 0
+    password_confirm_does_not_match = 0
 
+    request_json = request.get_json()
+    user = valid_auth(request_json["id"], request_json["password"])
+
+    if not user:
+        not_authenticated = 1
+    else:
+        if User.query.filter(User.id.in_([request_json["modify"]["id"]])):
+            exist_id = 1
+        if not id_re.match(request_json["modify"]["id"]) and request_json["modify"]["id"] != "":
+            bad_id = 1
+        if not 0 < len(request_json["modify"]["name"]) < 32:
+            bad_name = 1
+        if not passw_re.match(request_json["modify"]["password"]) and request_json["modify"]["password"] != "":
+            bad_password = 1
+        if request_json["modify"]["password"] != request_json["modify"]["password_confirm"]:
+            password_confirm_does_not_match = 1
+        if not exist_id or bad_id or bad_name or bad_password or password_confirm_does_not_match:
+            if request_json["modify"]["id"]:
+                user.id = request_json["modify"]["id"]
+            if request_json["modify"]["password"]:
+                user.password = str(hashlib.sha256(b"%a" % str(request_json["modify"]["password"])).digest())
+            if request_json["modify"]["name"]:
+                user.name = request_json["modify"]["name"]
+            db.session.commit()
+            return jsonify({"error": 0,
+                            "content": {
+                                "new_id": user.id,
+                                "new_name": user.name
+                            }
+                            })
+    return jsonify({"error": 1,
+                    "content": {
+                        "not_authenticated": not_authenticated,
+                        "exist_id": exist_id,
+                        "bad_id": bad_id,
+                        "bad_name": bad_name,
+                        "bad_password": bad_password,
+                        "password_confirm_does_not_match": password_confirm_does_not_match
+                    }
+                    })
+
+
+"""
 
 @app.route("/json/date/<day>")
 def json_date(day):
