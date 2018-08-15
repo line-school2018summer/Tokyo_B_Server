@@ -40,6 +40,7 @@ class Friend(Base):
 class Talk_group(Base):
     __tablename__ = "talk_groups"
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
     content = relation("Content", order_by="Content.id",
             uselist=True, backref="talk_group")
 
