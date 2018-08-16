@@ -3,6 +3,7 @@
 import os
 import hashlib
 import re
+import secrets
 
 from flask import Flask, redirect, request, session, send_from_directory, jsonify, make_response, abort
 from flask_login import login_user, logout_user, LoginManager, UserMixin, login_required, current_user
@@ -26,18 +27,20 @@ class User(db.Model):
     id = db.Column(db.String(16), primary_key=True)  # 16文字までのidをprimary_keyにします
     name = db.Column(db.String(32))  # 32文字までのname(hash化されたもの。)
     password = db.Column(db.String(128))  # 128文字までのpassword(hash化されたもの。)
+    token = db.Column(db.String(64))  # 64文字のtoken
 
-    def __init__(self, id, name, password):
+    def __init__(self, id, name, password, token):
         self.id = id
         self.name = name
         self.password = password
+        self.token = token
 
 
 @app.errorhandler(404)  # 404のハンドラです
 def page_not_found(e):
     return jsonify({"error": 1,
                     "content":
-                        {"message": "Unexist Page"}
+                        {"message": "missing Page"}
                     })
 
 
@@ -53,6 +56,12 @@ def valid_auth(id, pass_):  # idとpass_に合致するユーザーが存在す�
     return User.query.filter(User.id.in_([id]),
                              User.password.in_(
                                  [str(hashlib.sha256(b"%a" % str(pass_)).digest())])).first()
+
+
+def verify_token(id, token):
+    return User.query.filter(User.id.in_([id]),
+                             User.token.in_(
+                                 [token])).first()
 
 
 @app.route("/")  # ルートディレクトリです
@@ -103,16 +112,18 @@ def register():
                     "password_confirm_does_not_match": password_confirm_does_not_match
                 }
             })
-
+        token = secrets.token_hex()
         user = User(id=request_json["id"], name=request_json["name"],
-                    password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()))
+                    password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token)
         db.session.add(user)
         db.session.commit()  # 無かった場合、登録します。
         return jsonify({
             "error": 0,
             "content": {
                 "logged_id": request_json["id"],
-                "logged_pass": request_json["password"]
+                "logged_pass": request_json["password"],
+                "token": token,
+                "message": "successful registration"
             }
         })
 
@@ -131,30 +142,58 @@ def login():
                                User.password.in_(
                                    [str(hashlib.sha256(b"%a" % str(request_json["password"])).digest())])).first()
     if result and not request_json["authenticated"]:  # ログイン成功時です
+        token = secrets.token_hex()
+        result.token = token
+        db.session.commit()
         return jsonify({
             "error": 0,
             "content": {
                 "logged_id": request_json["id"],
-                "logged_pass": request_json["password"]
+                "logged_pass": request_json["password"],
+                "token": token,
+                "message": "logged in successfully"
             }
         })
     else:  # 失敗時
-        unexist_id = not bool(User.query.filter(User.id.in_([request_json["id"]])))
+        missing_id = not bool(User.query.filter(User.id.in_([request_json["id"]])))
         return jsonify({
             "error": 1,
             "content": {
                 "authenticated": request_json["authenticated"],
-                "unexist_id": unexist_id,
-                "invalid_password": not unexist_id
+                "missing_id": missing_id,
+                "invalid_password": not missing_id
             }
         })
 
 
-@app.route("/logout")  # ログアウト用ディレクトリです(何の動作もしないので、正直今のところは必要ないです。
-def logout():  # Userに最終ログアウト時刻的なものをつけるならいると思います。)
-    return jsonify({"error": 0,
+@app.route("/logout", methods=["GET", "POST"])
+def logout():
+    if request.method == "GET":
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/logout[get]"
+                        }
+                        })
+    request_json = request.get_json()
+    not_authenticated = 0
+    invalid_verify = 0
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    user = verify_token
+    if not user:
+        invalid_verify = 1
+    if not not_authenticated or invalid_verify:
+        user.token = "logout"
+        db.session.commit()
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "logged out successfully"
+                        }
+                        })
+    return jsonify({"error": 1,
                     "content": {
-                        "message": "/logout[get]"
+                        "not_authenticated": not_authenticated,
+                        "invalid_verify": invalid_verify
                     }
                     })
 
@@ -201,7 +240,8 @@ def account_modify():
             return jsonify({"error": 0,
                             "content": {
                                 "new_id": user.id,
-                                "new_name": user.name
+                                "new_name": user.name,
+                                "message": "modified successfully"
                             }
                             })
     return jsonify({"error": 1,
@@ -212,6 +252,51 @@ def account_modify():
                         "bad_name": bad_name,
                         "bad_password": bad_password,
                         "password_confirm_does_not_match": password_confirm_does_not_match
+                    }
+                    })
+
+
+@app.route("/chat/personal", methods=["GET", "POST"])
+def personal_chat():
+    if request.method == "GET":
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/chat/personal[get]"
+                        }
+                        })
+    request_json = request.get_json()
+    not_authenticated = 0
+    invalid__verify = 0
+    missing_target = 0
+    too_long_text = 0
+    meaningless_text = 0
+
+    user = verify_token(request_json["id"], request_json["token"])
+
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid__verify = 1
+    if not User.query.filter(User.id.in_([request_json["content"]["target"]])).first():
+        missing_target = 1
+    if len(request_json["content"]["text"]) > 1024:
+        too_long_text = 1
+    if not request_json["content"]["text"].strip():
+        meaningless_text = 1
+    if not_authenticated or invalid__verify or missing_target or too_long_text or meaningless_text:
+        return jsonify({"error": 1,
+                        "content": {
+                            "not_authenticated": not_authenticated,
+                            "invalid_verify": invalid_verify,
+                            "missing_target": missing_target,
+                            "too_long_text": too_long_text,
+                            "meaningless_text": meaningless_text
+                        }
+                        })
+    pass  # ここでトークの処理
+    return jsonify({"error": 0,
+                    "content": {
+                        "message": "sent successfully"
                     }
                     })
 
