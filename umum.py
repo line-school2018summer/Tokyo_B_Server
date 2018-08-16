@@ -9,6 +9,13 @@ from flask import Flask, redirect, request, session, send_from_directory, jsonif
 from flask_login import login_user, logout_user, LoginManager, UserMixin, login_required, current_user
 from flask_sqlalchemy import SQLAlchemy
 
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.schema import Column, ForeignKey, Table
+from sqlalchemy.types import Integer, String
+from sqlalchemy.orm import relation, backref
+from sqlalchemy.engine import create_engine
+from sqlalchemy.orm.session import sessionmaker
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 app.config['JSON_AS_ASCII'] = False
@@ -21,19 +28,73 @@ db = SQLAlchemy(app)
 passw_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{6,12}\Z(?i)")  # passwordの認証のための正規表現です
 id_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{4,12}\Z(?i)")  # idの認証のための正規表現です
 
+Base = declarative_base()
 
-class User(db.Model):
-    __tablename__ = "user"  # tableはuserです
-    id = db.Column(db.String(16), primary_key=True)  # 16文字までのidをprimary_keyにします
-    name = db.Column(db.String(32))  # 32文字までのname(hash化されたもの。)
-    password = db.Column(db.String(128))  # 128文字までのpassword(hash化されたもの。)
-    token = db.Column(db.String(64))  # 64文字のtoken
+talk_group_relation_table = Table('talk_group_relation', Base.metadata,
+                                  Column('user_id', Integer, ForeignKey('users.id')),
+                                  Column('talk_group_id', Integer, ForeignKey('talk_groups.id'))
+                                  )
 
-    def __init__(self, id, name, password, token):
-        self.id = id
+friendship = Table('friendship', Base.metadata,
+                   Column('add_id', Integer, ForeignKey('users.id')),
+                   Column('added_id', Integer, ForeignKey('users.id'))
+                   )
+
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+    friends = db.relationship(
+        'User', secondary=friendship,
+        primaryjoin=(friendship.c.add_id == id),
+        secondaryjoin=(friendship.c.added_id == id),
+        backref=db.backref('friendship', lazy='dynamic'), lazy='dynamic')
+    talk_groups = relation("Talk_group", order_by="Talk_group.id",
+                           uselist=True, backref="users",
+                           secondary=talk_group_relation_table, lazy="dynamic")
+
+    def __init__(self, user_id, name, password):
+        self.user_id = user_id
         self.name = name
         self.password = password
-        self.token = token
+
+    def __repr__(self):
+        return '<User(%d, %s)>' % (self.id, self.user_id)
+
+
+class Talk_group(Base):
+    __tablename__ = "talk_groups"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    content = relation("Content", order_by="Content.id",
+                       uselist=True, backref="talk_group", lazy="dynamic")
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return '<Talk_group(%d)>' % (self.id)
+
+
+class Content(Base):
+    __tablename__ = "contents"
+    id = Column(Integer, primary_key=True)
+    talk_group_id = Column(Integer, ForeignKey("talk_groups.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    text = Column(String)
+
+    def __repr__(self):
+        return '<Contents(%d, %d, %s)>' % (self.id, self.user_id, self.text)
+
+
+engine = create_engine('sqlite:///database.db', echo=False)
+Base.metadata.create_all(engine)
+SessionMaker = sessionmaker(bind=engine)
+session = SessionMaker()
 
 
 @app.errorhandler(404)  # 404のハンドラです
@@ -52,16 +113,23 @@ def page_not_found(e):
                     })
 
 
-def valid_auth(id, pass_):  # idとpass_に合致するユーザーが存在するか検証し、存在するなら返します。
-    return User.query.filter(User.id.in_([id]),
+def valid_auth(user_id, pass_):  # idとpass_に合致するユーザーが存在するか検証し、存在するなら返します。
+    return User.query.filter(User.user_id.in_([user_id]),
                              User.password.in_(
                                  [str(hashlib.sha256(b"%a" % str(pass_)).digest())])).first()
 
 
-def verify_token(id, token):
-    return User.query.filter(User.id.in_([id]),
+def verify_token(user_id, token):
+    return User.query.filter(User.user_id.in_([user_id]),
                              User.token.in_(
                                  [token])).first()
+
+
+def zero_or_go(his, talk_id):
+    try:
+        return his[talk.id]
+    except KeyError:
+        return 0
 
 
 @app.route("/")  # ルートディレクトリです
@@ -89,9 +157,9 @@ def register():
 
         if request_json["authenticated"]:
             authenticated = 1
-        if User.query.filter(User.id.in_([request_json["id"]])):
+        if User.query.filter(User.user_id.in_([request_json["user_id"]])):
             exist_id = 1
-        if not id_re.match(request_json["id"]):
+        if not id_re.match(request_json["user_id"]):
             bad_id = 1
         if not 0 < len(request_json["name"]) < 32:
             bad_name = 1
@@ -113,14 +181,14 @@ def register():
                 }
             })
         token = secrets.token_hex()
-        user = User(id=request_json["id"], name=request_json["name"],
+        user = User(user_id=request_json["user_id"], name=request_json["name"],
                     password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token)
-        db.session.add(user)
-        db.session.commit()  # 無かった場合、登録します。
+        session.add(user)
+        session.commit()  # 無かった場合、登録します。
         return jsonify({
             "error": 0,
             "content": {
-                "logged_id": request_json["id"],
+                "logged_id": request_json["user_id"],
                 "logged_pass": request_json["password"],
                 "token": token,
                 "message": "successful registration"
@@ -138,24 +206,24 @@ def login():
 
     request_json = request.get_json()
 
-    result = User.query.filter(User.id.in_([request_json["id"]]),
+    result = User.query.filter(User.user_id.in_([request_json["user_id"]]),
                                User.password.in_(
                                    [str(hashlib.sha256(b"%a" % str(request_json["password"])).digest())])).first()
     if result and not request_json["authenticated"]:  # ログイン成功時です
         token = secrets.token_hex()
         result.token = token
-        db.session.commit()
+        session.commit()
         return jsonify({
             "error": 0,
             "content": {
-                "logged_id": request_json["id"],
+                "logged_id": request_json["user_id"],
                 "logged_pass": request_json["password"],
                 "token": token,
                 "message": "logged in successfully"
             }
         })
     else:  # 失敗時
-        missing_id = not bool(User.query.filter(User.id.in_([request_json["id"]])))
+        missing_id = not bool(User.query.filter(User.user_id.in_([request_json["user_id"]])))
         return jsonify({
             "error": 1,
             "content": {
@@ -184,7 +252,7 @@ def logout():
         invalid_verify = 1
     if not not_authenticated or invalid_verify:
         user.token = "logout"
-        db.session.commit()
+        session.commit()
         return jsonify({"error": 0,
                         "content": {
                             "message": "logged out successfully"
@@ -207,6 +275,7 @@ def account_modify():
                         }
                         })
     not_authenticated = 0
+    invalid_verify = 0
     exist_id = 0
     bad_id = 0
     bad_name = 0
@@ -214,14 +283,16 @@ def account_modify():
     password_confirm_does_not_match = 0
 
     request_json = request.get_json()
-    user = valid_auth(request_json["id"], request_json["password"])
+    user = valid_auth(request_json["user_id"], request_json["password"])
 
-    if not user:
+    if not request_json["authenticated"]:
         not_authenticated = 1
-    else:
-        if User.query.filter(User.id.in_([request_json["modify"]["id"]])):
+    if not user:
+        invalid_verify = 1
+    if not (invalid_verify or not_authenticated):
+        if User.query.filter(User.user_id.in_([request_json["modify"]["user_id"]])):
             exist_id = 1
-        if not id_re.match(request_json["modify"]["id"]) and request_json["modify"]["id"] != "":
+        if not id_re.match(request_json["modify"]["user_id"]) and request_json["modify"]["user_id"] != "":
             bad_id = 1
         if not 0 < len(request_json["modify"]["name"]) < 32:
             bad_name = 1
@@ -229,14 +300,14 @@ def account_modify():
             bad_password = 1
         if request_json["modify"]["password"] != request_json["modify"]["password_confirm"]:
             password_confirm_does_not_match = 1
-        if not exist_id or bad_id or bad_name or bad_password or password_confirm_does_not_match:
-            if request_json["modify"]["id"]:
-                user.id = request_json["modify"]["id"]
+        if not (exist_id or bad_id or bad_name or bad_password or password_confirm_does_not_match or invalid_verify):
+            if request_json["modify"]["user_id"]:
+                user.id = request_json["modify"]["user_id"]
             if request_json["modify"]["password"]:
                 user.password = str(hashlib.sha256(b"%a" % str(request_json["modify"]["password"])).digest())
             if request_json["modify"]["name"]:
                 user.name = request_json["modify"]["name"]
-            db.session.commit()
+            session.commit()
             return jsonify({"error": 0,
                             "content": {
                                 "new_id": user.id,
@@ -247,6 +318,7 @@ def account_modify():
     return jsonify({"error": 1,
                     "content": {
                         "not_authenticated": not_authenticated,
+                        "invalid_verify": invalid_verify,
                         "exist_id": exist_id,
                         "bad_id": bad_id,
                         "bad_name": bad_name,
@@ -256,46 +328,332 @@ def account_modify():
                     })
 
 
-@app.route("/chat/personal", methods=["GET", "POST"])
-def personal_chat():
+@app.route("/add_friend", methods=["GET", "POST"])
+def add_friend():
     if request.method == "GET":
         return jsonify({"error": 0,
                         "content": {
-                            "message": "/chat/personal[get]"
+                            "message": "/add_friend[get]"
+                        }
+                        })
+    request_json = request.get_json()
+
+    not_authenticated = 0
+    invalid_verify = 0
+    unexist_id = 0
+    self_adding = 0
+    already_friend = 0
+
+    user = verify_token(request_json["user_id"], request_json["token"])
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid_verify = 1
+    target = User.query.filter(User.uesr_id.in_(request_json["target_id"])).first()
+    if not target:
+        unexist_id = 1
+    if user == target:
+        self_adding = 1
+    if not (invalid_verify or unexist_id):
+        if target in user.friends:
+            already_friend = 1
+    if not_authenticated or unexist_id or already_friend or self_adding or invalid_verify:
+        return jsonify({"error": 1,
+                        "content": {
+                            "not_authenticated": not_authenticated,
+                            "invalid_verify": invalid_verify,
+                            "unexist_id": unexist_id,
+                            "self_adding": self_adding,
+                            "already_friend": already_friend
+                        }
+                        })
+    user.friends.append(target)
+    session.commit()
+    return jsonify({"error": 0,
+                    "content": {
+                        "message": "added successfully"
+                    }
+                    })
+
+
+@app.route("/remove_friend", methods=["GET", "POST"])
+def remove_friend():
+    if request.method == "GET":
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/remove_friend[get]"
+                        }
+                        })
+    request_json = request.get_json()
+
+    not_authenticated = 0
+    invalid_verify = 0
+    unexist_id = 0
+    self_removing = 0
+    already_stranger = 0
+
+    user = verify_token(request_json["user_id"], request_json["token"])
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid_verify = 1
+    target = User.query.filter(User.uesr_id.in_(request_json["target_id"])).first()
+    if not target:
+        unexist_id = 1
+    if user == target:
+        self_removing = 1
+    if not (invalid_verify or unexist_id):
+        if target not in user.friends:
+            already_stranger = 1
+    if not_authenticated or unexist_id or already_stranger or self_removing or invalid_verify:
+        return jsonify({"error": 1,
+                        "content": {
+                            "not_authenticated": not_authenticated,
+                            "invalid_verify": invalid_verify,
+                            "unexist_id": unexist_id,
+                            "self_removing": self_removing,
+                            "already_stranger": already_stranger
+                        }
+                        })
+    user.friends.remove(target)
+    session.commit()
+    return jsonify({"error": 0,
+                    "content": {
+                        "message": "removed successfully"
+                    }
+                    })
+
+
+@app.route("/friends_list", methods=["GET", "POST"])
+def friends_list():
+    if request.method == "GET":
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/friends_list[get]"
+                        }
+                        })
+    request_json = request.get_json()
+
+    not_authenticated = 0
+    invalid_verify = 0
+
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    user = verify_token(request_json["user_id"], request_json["token"])
+    if not user:
+        invalid_verify = 1
+    if invalid_verify or not_authenticated:
+        return jsonify({"error": 1,
+                        "content": {
+                            "not_authenticated": not_authenticated,
+                            "invalid_verify": invalid_verify
+                        }
+                        })
+    return jsonify({"error": 0,
+                    "content": {
+                        "message": "friend_list",
+                        "friends": {g.id: {str(g.user_id), str(g.name)} for g in user.friends
+                                    }
+                    }
+                    })
+
+
+@app.route("/chat/personal/send", methods=["GET", "POST"])
+def personal_send():
+    if request.method == "GET":
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/chat/personal/send[get]"
                         }
                         })
     request_json = request.get_json()
     not_authenticated = 0
-    invalid__verify = 0
+    invalid_talk_id = 0
+    invalid_verify = 0
     missing_target = 0
     too_long_text = 0
     meaningless_text = 0
 
-    user = verify_token(request_json["id"], request_json["token"])
+    user = verify_token(request_json["user_id"], request_json["token"])
 
     if not request_json["authenticated"]:
         not_authenticated = 1
     if not user:
-        invalid__verify = 1
-    if not User.query.filter(User.id.in_([request_json["content"]["target"]])).first():
+        invalid_verify = 1
+    target = User.query.filter(User.id.in_([request_json["content"]["target"]])).first()
+    if not target:
         missing_target = 1
     if len(request_json["content"]["text"]) > 1024:
         too_long_text = 1
     if not request_json["content"]["text"].strip():
         meaningless_text = 1
-    if not_authenticated or invalid__verify or missing_target or too_long_text or meaningless_text:
+    exist = 0
+    if request_json["content"]["talk_id"]:
+        talk = Talk_group.query.filter(Talk_group.id.in_(request_json["content"]["talk_id"])).first()
+        if talk:
+            if sorted(talk.users) == sorted(user, target) and talk.name == "_personal":
+                exist = 1
+            else:
+                invalid_talk_id = 1
+        else:
+            invalid_talk_id = 1
+    if not_authenticated or invalid_verify or missing_target or too_long_text or meaningless_text or invalid_talk_id:
         return jsonify({"error": 1,
                         "content": {
                             "not_authenticated": not_authenticated,
                             "invalid_verify": invalid_verify,
+                            "invalid_talk_id": invalid_talk_id,
                             "missing_target": missing_target,
                             "too_long_text": too_long_text,
                             "meaningless_text": meaningless_text
                         }
                         })
-    pass  # ここでトークの処理
+    if not exist:
+        for talk in set(user.talk_groups) & set(target.talk_groups):
+            if talk.name == "_personal":
+                exist = 1
+                break
+    if not exist:
+        talk = Talk_group(name="_personal")
+        user.talk_groups.append(talk)
+        target.talk_groups.append(talk)
+        session.add(talk)
+    cont = Content(user_id=user.id, talk_group_id=talk.id, text=request_json["content"]["text"].strip())
+    session.add(cont)
+    talk.content.append(cont)
+    session.commit()
+
     return jsonify({"error": 0,
                     "content": {
+                        "talk_id": talk.id,
+                        "message": "sent successfully"
+                    }
+                    })
+
+
+@app.route("/chat/get", methods=["GET", "POST"])
+def chat_get():
+    if request.method == "GET":
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/chat/personal/get[get]"
+                        }
+                        })
+    request_json = request.get_json()
+    not_authenticated = 0
+    invalid_talk_id = 0
+    invalid_verify = 0
+
+    user = verify_token(request_json["user_id"], request_json["token"])
+
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid_verify = 1
+    if not_authenticated or invalid_verify:
+        return jsonify({"error": 1,
+                        "content": {
+                            "not_authenticated": not_authenticated,
+                            "invalid_verify": invalid_verify,
+                            "invalid_talk_id": 0
+                        }
+                        })
+    try:
+        if request_json["content"]["talk_all_need"]:
+            return jsonify({"error": 0,
+                            "content": {
+                                "talk": {
+                                    {str(talk.id)}: {
+                                        "name": {talk.name},
+                                        "new": {
+                                            {{cont.user_id}, {User.query.get(cont.user_id).name}, {cont.text},
+                                             {cont.id}}
+                                            for cont in talk.content.filter(
+                                            Content.id > zero_or_go(request_json["content"]["talk_his"])).all()
+                                        }
+                                    } for talk in user.talk_groups
+                                }
+                            },
+                            }
+                           )
+        else:
+            return jsonify({"error": 0,
+                            "content": {
+                                "talk": {
+                                    {str(talk.id)}: {
+                                        "name": {talk.name},
+                                        "new": {
+                                            {{cont.user_id}, {User.query.get(cont.user_id).name}, {cont.text},
+                                             {cont.id}}
+                                            for cont in talk.content.filter(
+                                            Content.id > request_json["content"]["talk_his"][talk.id]).all()
+                                        }
+                                    } for talk in user.talk_groups.filter(
+                                    Talk_group.id.in_([request_json["content"]["talk_his"].keys()])).all()
+                                }
+                            },
+                            }
+                           )
+    except:
+        return jsonify({"error": 1,
+                        "content": {
+                            "not_authenticated": 0,
+                            "invalid_verify": 0,
+                            "invalid_talk_id": 1
+                        }
+                        })
+
+
+@app.route("/chat/group/send", methods=["GET", "POST"])
+def group_send():
+    if request.method == "GET":
+        return jsonify({"error": 0,
+                        "content": {
+                            "message": "/chat/group/send[get]"
+                        }
+                        })
+    request_json = request.get_json()
+    not_authenticated = 0
+    invalid_talk_id = 0
+    invalid_verify = 0
+    too_long_text = 0
+    meaningless_text = 0
+
+    user = verify_token(request_json["user_id"], request_json["token"])
+
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid_verify = 1
+    if len(request_json["content"]["text"]) > 1024:
+        too_long_text = 1
+    if not request_json["content"]["text"].strip():
+        meaningless_text = 1
+    exist = 0
+    talk = Talk_group.query.filter(Talk_group.id.in_(request_json["content"]["talk_id"])).first()
+    if user in talk.users and talk.name != "_personal":
+        exist = 1
+    else:
+        invalid_talk_id = 1
+    if not_authenticated or invalid_verify or missing_target or too_long_text or meaningless_text or invalid_talk_id:
+        return jsonify({"error": 1,
+                        "content": {
+                            "not_authenticated": not_authenticated,
+                            "invalid_verify": invalid_verify,
+                            "invalid_talk_id": invalid_talk_id,
+                            "too_long_text": too_long_text,
+                            "meaningless_text": meaningless_text
+                        }
+                        })
+
+    cont = Content(user_id=user.id, talk_group_id=talk.id, text=request_json["content"]["text"].strip())
+    session.add(cont)
+    talk.content.append(cont)
+    session.commit()
+
+    return jsonify({"error": 0,
+                    "content": {
+                        "talk_id": talk.id,
                         "message": "sent successfully"
                     }
                     })
@@ -413,10 +771,10 @@ def edit(num=0):
         p.remark = request.form["remark"]
         p.published = request.form["published"]
         if str(request.form["delete"]) == "いいよ！こいよ！":
-            db.session.delete(p)
-            db.session.commit()
+            session.delete(p)
+            session.commit()
             return redirect("/")
-        db.session.commit()
+        session.commit()
     return render_template('editprofile.html', page=p, prim=prime_factors, dat=dat)
 
 
@@ -533,10 +891,10 @@ def del_lim():
         except:
             to = datetime.date(1, 1, 1)
         if max(bef, to) < datetime.date.today():
-            db.session.delete(ent)
+            session.delete(ent)
             deleted = True
     if deleted:
-        db.session.commit()
+        session.commit()
 
 
 def prime_factors(n):
