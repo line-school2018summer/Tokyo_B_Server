@@ -50,7 +50,7 @@ class User(Base):
         'User', secondary=friendship,
         primaryjoin=(friendship.c.add_id == id),
         secondaryjoin=(friendship.c.added_id == id),
-        backref=db.backref('friendship', lazy='dynamic'), lazy='dynamic')
+        backref=db.backref('stalkers', lazy='dynamic'), lazy='dynamic')
     talk_groups = relation("Talk_group", order_by="Talk_group.id",
                            uselist=True, backref="users",
                            secondary=talk_group_relation_table, lazy="dynamic")
