@@ -503,7 +503,6 @@
     * ログインしていない状態での/chat/join/selfへのpostは認められません。
     * 合致しない"id", "token"でのpostは認められません。
     * 存在しない"content"-"target_group"は認められません。
-    * 個人チャットへ侵入することはできません(/chat/personal/sendをもちいて作成してください。)
     * すでに参加しているgroupをtargetには指定できません。
 ```
 {"error": 1,
@@ -603,7 +602,6 @@
     * 存在しない"content"-"target_user_id"は認められません。
     * 存在しない"content"-"target_group"は認められません。
     * "content"-"target_group"にはpost元のユーザが参加していなければなりません。
-    * 個人チャットへ侵入させることはできません(/chat/geiup/makeをもちいて作成してください。)
     * すでにターゲットユーザが参加しているgroupを"content"-"target_group"には指定できません。
 ```
 {"error": 1,
