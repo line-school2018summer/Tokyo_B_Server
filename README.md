@@ -1,7 +1,9 @@
 # Tokyo_B_server
 Server Side repository of Tokyo B Group
 
-"""
+
+## DB仕様
+~~~
 
 talk_group_relation_table = Table('talk_group_relation', Base.metadata,
                                  Column('user_id', Integer, ForeignKey('users.id')),
@@ -66,4 +68,4 @@ class Content(Base):
    def __repr__(self):
        return '<Contents(%d, %d, %s)>' % (self.id, self.user_id, self.content[:20])
        
-"""
+~~~
