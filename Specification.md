@@ -1,3 +1,19 @@
+
+- /
+- /account/register
+- /account/login
+- /account/logout
+- /account/modify
+- /friend/add
+- /friend/remove
+- /friend/list
+- /friend/search
+- /chat/get
+- /chat/send
+- /chat/make
+- /chat/join/self
+- /chat/join/other
+
 # / [get]
 ---
 ### GET
@@ -8,13 +24,13 @@
     }
 }
 ```
-# /register [get / post]
+# /account/register [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/register[get]"
+    "message": "/account/register[get]"
     }
 }
 ```
@@ -22,7 +38,7 @@
 
 #### request
 ```
-{"target": "/register",
+{"target": "/account/register",
 "authenticated": <authenticated>,
 "user_id": <user_id>,
 "name": <name>,
@@ -32,7 +48,7 @@
 ```
 #### response
 * エラー有りの場合
-    * すでにログインしている状態での/registerへのpostは認められません。
+    * すでにログインしている状態での/account/registerへのpostは認められません。
     * 既存アカウントに重複するような"user_id"は使用できません。
     * 3文字以下、13文字以上、英数字以外の"user_id"は認められません。
     * 0文字、もしくは32文字以上の"name"は認められません。
@@ -62,27 +78,27 @@
     }
 }
 ```
-# /login [get / post]
+# /account/login [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/login[get]"
+    "message": "/account/login[get]"
     }
 }
 ```
 ### POST
 #### request
 ```
-{"target": "/login", 
+{"target": "/account/login", 
 "authenticated": <authenticated>,
 "user_id": <user_id>,
 "password": <password>
 ```
 #### response
 * エラー有りの場合 
-    * すでにログインしている状態での/registerへのpostは認められません。
+    * すでにログインしている状態での/account/registerへのpostは認められません。
     * 存在している"user_id"でなければいけません。
     * "user_id"が存在していた場合、"password"が合致していなければいけません。
     * (missing_id が 1 の時、invalid_password は自動的に 0 になるので、両者が常に同じ結果になることはありえません。)
@@ -107,27 +123,27 @@
     }
 }
 ```
-# /logout [get]
+# /account/logout [get]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/logout[get]"
+    "message": "/account/logout[get]"
     }
 }
 ```
 ### POST
 #### request
 ```
-{"target": "/logout", 
+{"target": "/account/logout", 
 "authenticated": <authenticated>,
 "id": <id>,
 "token": <token>
 ```
 #### response
 * エラー有りの場合
-    * ログインしていない状態での/logoutへのpostは認められません。
+    * ログインしていない状態での/account/logoutへのpostは認められません。
     * 合致しない"user_id", "token"でのpostは認められません。
 ```
 {"error": 1,
@@ -145,13 +161,13 @@
     }
 }
 ```
-# /account_modify [get / post]
+# /account/modify [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/account_modify[get]"
+    "message": "/account/modify[get]"
     }
 }
 ```
@@ -159,7 +175,7 @@
 #### request
 "modify"内は変更先の情報を入力してください。空白は変更なしと捉えます。
 ```
-{"target": "/account_modify",
+{"target": "/account/modify",
 "authenticated": <authenticated>,
 "id": <user_id>,
 "password": <password>,
@@ -173,7 +189,7 @@
 ```
 #### response
 * エラー有りの場合
-    * ログインしていない状態での/account_modifyへのpostは認められません。
+    * ログインしていない状態での/account/modifyへのpostは認められません。
     * 存在しない"user_id", "password"でのpostは認められません。
     * 既存の他のアカウントに重複するような"modify"-"user_id"は使用できません。
     * 3文字以下、13文字以上、英数字以外の"modify"-"user_id"は認められません。
@@ -203,13 +219,13 @@
     }
 }
 ```
-# /add_friend [get / post]
+# /friend/add [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/add_friend[get]"
+    "message": "/friend/add[get]"
     }
 }
 ```
@@ -217,7 +233,7 @@
 * "use_id"が1の場合、"User.id"で走査を行います。そうでない場合、"User.user_id"で走査を行います。
 #### request
 ```
-{"target": "/add_friend",
+{"target": "/friend/add",
 "authenticated": <authenticated>,
 "use_id": <0 or 1>
 "id": <id>,
@@ -227,7 +243,7 @@
 ```
 #### response
 * エラー有りの場合
-    * ログインしていない状態での/add_friendへのpostは認められません。
+    * ログインしていない状態での/friend/addへのpostは認められません。
     * 合致しない"user_id", "token"でのpostは認められません。
     * "terget_id"には、既存で、かつ、post元のユーザーとは異なるユーザーに合致する"user_id"のみ認められます。
     * 自分自身を"target_id"に指定することはできません。
@@ -252,13 +268,13 @@
 }
 ```
 
-# /remove_friend [get / post]
+# /friend/remove [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/remove_friend[get]"
+    "message": "/friend/remove[get]"
     }
 }
 ```
@@ -266,7 +282,7 @@
 * "use_id"が1の場合、"User.id"で走査を行います。そうでない場合、"User.user_id"で走査を行います。
 #### request
 ```
-{"target": "/remove_friend",
+{"target": "/friend/remove",
 "authenticated": <authenticated>,
 "use_id": <0 or 1>
 "id": <id>,
@@ -276,7 +292,7 @@
 ```
 #### response
 * エラー有りの場合
-    * ログインしていない状態での/add_friendへのpostは認められません。
+    * ログインしていない状態での/friend/addへのpostは認められません。
     * 合致しない"id", "token"でのpostは認められません。
     * 自分自身を"target_id"に指定することはできません。
     * "target_id"には、既存で、かつ、post元のユーザーとは異なるユーザーに合致する"user_id"のみ認められます。
@@ -301,20 +317,20 @@
 }
 ```
 
-# /friends_list [get / post]
+# /friend/list [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/friends_list[get]"
+    "message": "/friend/list[get]"
     }
 }
 ```
 ### POST
 #### request
 ```
-{"target": "/friends_list",
+{"target": "/friend/list",
 "authenticated": <authenticated>,
 "id": <id>,
 "token": <token>
@@ -346,6 +362,54 @@
     }
 }
 ```
+# /friend/search [get, post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/friend/search[get]"
+    }
+}
+```
+### POST
+#### request
+* "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
+```
+{"target": "/friend/search",
+"authenticated": <authenticated>,
+"id": <id>,
+"token": <token>,
+"content": {
+    "use_id": <0 or 1>,
+    "target_user_id": <user_id>
+    }
+}
+```
+#### response
+* エラー有りの場合
+    * ログインしていない状態での/chat/join/otherへのpostは認められません。
+    * 合致しない"id", "token"でのpostは認められません。
+    * 存在しない"content"-"target_user_id"は認められません。
+```
+{"error": 1,
+"content": {
+    "not_authenticated": <0 or 1>,
+    "invalid_verify": <0 or 1>,
+    "invalid_user_id": <0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+    "content": {
+        "id": <id>,
+        "user_id": <user_id>,
+        "name": <name>
+    }
+}
+```
 
 # /chat/send [get, post]
 ---
@@ -366,7 +430,7 @@
 "token": <token>,
 "content": {
     "talk_id": <talk_id>,
-    "type": <type>
+    "type": <type>,
     "content": <content>
     }
 }
@@ -433,13 +497,12 @@
     * ログインしていない状態での/chat/getへのpostは認められません。
     * 合致しない"id", "token"でのpostは認められません。
     * 存在しない"content"-"talk_id"は認められません。
-    * これは負荷がかかる動作なので、"not_authenticated"か"invalid_verify"の内1つ以上が1の場合、"talk"の走査を行うことなくreturnされます。これにより、"invalid_talk_id"と"not_authenticated"もしくは"invalid_verify"の内少なくとも片方が共に1になることはあり得ません。(` "invalid_talk_id" and ("not_authenticated" or "invalid_verify")`は常にFalseであるということです。)
+    * これは負荷がかかる動作なので、"not_authenticated"か"invalid_verify"の内1つ以上が1の場合、"talk"の走査を行うことなくreturnされます。
 ```
 {"error": 1,
 "content": {
     "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_talk_id": <0 or 1>
+    "invalid_verify": <0 or 1>
     }
 }
 ```
@@ -524,20 +587,20 @@
 }
 ```
 
-# /chat/make/group [get, post]
+# /chat/make [get, post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/chat/make/group[get]"
+    "message": "/chat/make[get]"
     }
 }
 ```
 ### POST
 #### request
 ```
-{"target": "/chat/make/group",
+{"target": "/chat/make",
 "authenticated": <authenticated>,
 "id": <id>,
 "token": <token>,
@@ -548,7 +611,7 @@
 ```
 #### response
 * エラー有りの場合
-    * ログインしていない状態での/chat/make/groupへのpostは認められません。
+    * ログインしていない状態での/chat/makeへのpostは認められません。
     * 合致しない"id", "token"でのpostは認められません。
 ```
 {"error": 1,
@@ -584,7 +647,7 @@
 #### request
 * "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
 ```
-{"target": "/chat/join/self",
+{"target": "/chat/join/other",
 "authenticated": <authenticated>,
 "id": <id>,
 "token": <token>,
@@ -621,55 +684,6 @@
 {"error": 0,
 "content": {
     "message": "seccess"
-    }
-}
-```
-
-# /friend/search [get, post]
----
-### GET
-```
-{"error": 0,
-"content": {
-    "message": "/friend/search[get]"
-    }
-}
-```
-### POST
-#### request
-* "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
-```
-{"target": "/chat/join/self",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
-"content": {
-    "use_id": <0 or 1>,
-    "target_user_id": <user_id>
-    }
-}
-```
-#### response
-* エラー有りの場合
-    * ログインしていない状態での/chat/join/otherへのpostは認められません。
-    * 合致しない"id", "token"でのpostは認められません。
-    * 存在しない"content"-"target_user_id"は認められません。
-```
-{"error": 1,
-"content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_user_id": <0 or 1>
-    }
-}
-```
-* エラーなしの場合
-```
-{"error": 0,
-    "content": {
-        "id": <id>,
-        "user_id": <user_id>,
-        "name": <name>
     }
 }
 ```
