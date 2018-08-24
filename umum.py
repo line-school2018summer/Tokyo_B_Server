@@ -4,13 +4,14 @@ import os
 import hashlib
 import re
 import secrets
+import datetime
 
 from flask import Flask, request, session, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import Column, ForeignKey, Table
-from sqlalchemy.types import Integer, String
+from sqlalchemy.types import Integer, String, DateTime
 from sqlalchemy.orm import relation, backref, scoped_session
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
@@ -76,7 +77,7 @@ class Talk_group(Base):
         self.name = name
 
     def __repr__(self):
-        return '<Talk_group(%d)>' % (self.id)
+        return '<Talk_group(%d)>' % self.id
 
 
 class Content(Base):
@@ -86,6 +87,7 @@ class Content(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     type = Column(Integer)
     content = Column(String)
+    timestamp = Column(String, nullable=False)
 
     def __repr__(self):
         return '<Contents(%d, %d, %s)>' % (self.id, self.user_id, self.content[:20])
@@ -102,7 +104,7 @@ def page_not_found(e):
     return make_response(jsonify({"error": 1,
                                   "content":
                                       {"message": "missing Page"}
-                                  }))
+                                  })), e
 
 
 @app.errorhandler(500)  # 500のハンドラです
@@ -110,7 +112,7 @@ def page_not_found(e):
     return make_response(jsonify({"error": 1,
                                   "content":
                                       {"message": "Internal Server Error"}
-                                  }))
+                                  })), e
 
 
 def valid_auth(user_id, pass_):  # idとpass_に合致するユーザーが存在するか検証し、存在するなら返します。
@@ -119,10 +121,10 @@ def valid_auth(user_id, pass_):  # idとpass_に合致するユーザーが存�
                                  [str(hashlib.sha256(b"%a" % str(pass_)).digest())])).first()
 
 
-def verify_token(id, token):
+def verify_token(id_, token):
     if token == "logout":
         return None
-    user = session.query(User).get(id)
+    user = session.query(User).get(id_)
     return user if user.token == token else None
 
 
@@ -153,7 +155,7 @@ def register():
     bad_id = 0  # idのよしあし
     bad_name = 0  # nameのよしあし
     bad_password = 0  # passwordのよしあし
-    password_confirm_does_not_match = 0  # passwordのコンファームが合致しているかどうかです・
+    password_confirm_does_not_match = 0  # passwordのコンファームが合致しているかどうかです
     request_json = request.get_json()
     print(request_json)
 
@@ -172,7 +174,7 @@ def register():
     if request_json["password"] != request_json["password_confirm"]:
         password_confirm_does_not_match = 1
 
-    if exist_id or authenticated or bad_id or bad_name or bad_password or password_confirm_does_not_match:  # エラーがあった場合です
+    if exist_id or authenticated or bad_id or bad_name or bad_password or password_confirm_does_not_match:
         return make_response(jsonify({
             "error": 1,
             "content": {
@@ -510,7 +512,8 @@ def chat_get():
                                                            "sent_user_name": session.query(User).get(cont.user_id).name,
                                                            "content_type": cont.type,
                                                            "content_content": cont.content,
-                                                           "content_id": cont.id
+                                                           "content_id": cont.id,
+                                                           "timestamp": cont.timestamp
                                                            } for cont in talk.content.filter(
                                                               Content.id > zero_or_go(
                                                                   request_json["content"]["talk_his"], talk)).all()]
@@ -539,7 +542,7 @@ def chat_get():
                                                                   request_json["content"]["talk_his"], talk)).all()]
                                                   }
                                               } for talk in user.talk_groups.filter(
-                                              Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
+                                                Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
                                           }
                                       },
                                       }))
@@ -585,7 +588,9 @@ def chat_send():
                                       }
                                       }))
 
-    cont = Content(user_id=user.id, talk_group_id=talk.id, type=request_json["content"]["type"], content=request_json["content"]["content"].strip())
+    cont = Content(user_id=user.id, talk_group_id=talk.id, type=request_json["content"]["type"],
+                   content=request_json["content"]["content"].strip(),
+                   timestamp=datetime.datetime.utcnow().strftime("%Y:%m:%d:%H:%M:%S"))
     session.add(cont)
     talk.content.append(cont)
     session.commit()
@@ -703,7 +708,8 @@ def chat_join_other():
         invalid_talk_id = 1
     elif target_group.name == "_personal":
         personal_chat = 1
-    if not_authenticated or invalid_verify or already_joined or invalid_talk_id or personal_chat or invalid_user_id or user_not_joined:
+    if not_authenticated or invalid_verify or already_joined or invalid_talk_id or personal_chat or\
+            invalid_user_id or user_not_joined:
         return make_response(jsonify({"error": 1,
                                       "content": {
                                           "not_authenticated": not_authenticated,
@@ -767,7 +773,7 @@ def friend_search():
                                   }))
 
 
-# YYYY-MM-DD:HH:MM:SS
+
 
 
 if __name__ == "__main__":
