@@ -26,13 +26,14 @@
     }
 }
 ```
-# /account/register [get / post]
+
+# /account/register/register [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/account/register[get]"
+    "message": "/account/register/register[get]"
     }
 }
 ```
@@ -40,17 +41,18 @@
 
 #### request
 ```
-{"target": "/account/register",
+{"target": "/account/register/register",
 "authenticated": <authenticated>,
 "user_id": <user_id>,
 "name": <name>,
+"email": <email-address>
 "password": <password>,
 "password_confirm": <password>
 }
 ```
 #### response
 * エラー有りの場合
-    * すでにログインしている状態での/account/registerへのpostは認められません。
+    * すでにログインしている状態での/account/register/registerへのpostは認められません。
     * 既存アカウントに重複するような"user_id"は使用できません。
     * 3文字以下、13文字以上、英数字以外の"user_id"は認められません。
     * 0文字、もしくは32文字以上の"name"は認められません。
@@ -72,14 +74,57 @@
 ```
 {"error": 0,
 "content": {
+    "verify_id": <verify_id>
+    }
+}
+```
+
+# /account/register/verify [get / post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/account/register/verify[get]"
+    }
+}
+```
+### POST
+
+#### request
+```
+{"target": "/account/register/verify",
+"authenticated": <authenticated>,
+"verify_id": <user_id>,
+"code": <code>
+}
+```
+#### response
+* エラー有りの場合
+    * すでにログインしている状態での/account/register/verifyへのpostは認められません。
+    * 存在しない"verify_id"は認められません。
+    * 合致しない"verify_id", "code"は認められません。
+```
+{"error": 1,
+"content": {
+    "authenticated": <0 or 1>,
+    "invalid_verify_id": <0 or 1>,
+    "invalid_code": <0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+"content": {
     "logged_id": <id>
     "logged_user_id": <user_id>,
-    "logged_pass" <password>,
     "token": <token>,
     "message": "successful registration"
     }
 }
 ```
+
 # /account/login [get / post]
 ---
 ### GET

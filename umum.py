@@ -2,9 +2,13 @@
 
 import os
 import hashlib
+import random
 import re
 import secrets
 import datetime
+import smtplib
+
+from email import message
 
 from flask import Flask, request, session, jsonify, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -19,6 +23,8 @@ from sqlalchemy.orm.session import sessionmaker
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 app.config['JSON_AS_ASCII'] = False
+
+today = datetime.datetime.today()
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
@@ -47,6 +53,7 @@ class User(Base):
     name = Column(String, nullable=False)
     password = Column(String, nullable=False)
     token = Column(String, nullable=False)
+    email = Column(String, nullable=False)
     friends = db.relationship(
         'User', secondary=friendship,
         primaryjoin=(friendship.c.add_id == id),
@@ -56,11 +63,12 @@ class User(Base):
                            uselist=True, backref="users",
                            secondary=talk_group_relation_table, lazy="dynamic")
 
-    def __init__(self, user_id, name, password, token):
+    def __init__(self, user_id, name, password, token, email):
         self.user_id = user_id
         self.name = name
         self.password = password
         self.token = token
+        self.email = email
 
     def __repr__(self):
         return '<User(%d, %s)>' % (self.id, self.user_id)
@@ -91,6 +99,17 @@ class Content(Base):
 
     def __repr__(self):
         return '<Contents(%d, %d, %s)>' % (self.id, self.user_id, self.content[:20])
+
+
+class Mail_verify(Base):
+    __tablename__ = "meil_verify"
+    id = Column(Integer, primary_key=True)
+    email = Column(String, nullable=False)
+    code = Column(String, nullable=False)
+    user_id = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    password = Column(String, nullable=False)
+    token = Column(String, nullable=False)
 
 
 engine = create_engine('sqlite:///database.db', echo=False)
@@ -135,6 +154,42 @@ def zero_or_go(his, talk):
         return 0
 
 
+def send_mail(code, email, name):
+    text = f"""{name}様
+    
+LIMEです。
+ご登録ありがとうございます。
+以下の認証コードをLIMEの画面内に入力いただきますと、登録が完了いたします。
+
+認証コード: 【{code}】 
+
+認証コードは {datetime.datetime.today().strftime("%Y/%m/%d 23:59")} まで有効です。
+心当たりのない方はこのメールを破棄してください。
+
+LIME
+    """
+    smtp_host = 'smtp.gmail.com'
+    smtp_port = 587
+    from_email = 'do.not.reply.lime@gmail.com'
+    to_email = 'gey3933@gmail.com'
+    username = 'do.not.reply.lime@gmail.com'
+    password = open("password.txt", "r").read()
+
+    msg = message.EmailMessage()
+    msg.set_content(text)
+    msg['Subject'] = '【LIME】登録認証コード'
+    msg['From'] = from_email
+    msg['To'] = to_email
+
+    server = smtplib.SMTP(smtp_host, smtp_port)
+    server.ehlo()
+    server.starttls()
+    server.ehlo()
+    server.login(username, password)
+    server.send_message(msg)
+    server.quit()
+
+
 @app.route("/")  # ルートディレクトリです
 def main():
     return make_response(jsonify({"error": 0,
@@ -143,12 +198,12 @@ def main():
                                   }))
 
 
-@app.route('/account/register', methods=['GET', 'POST'])  # アカウント登録用のディレクトリです
+@app.route('/account/register/register', methods=['GET', 'POST'])  # アカウント登録用のディレクトリです
 def register():
     if request.method == "GET":
         return make_response(jsonify({"error": 0,
                                       "content":
-                                          {"message": "/account/register[get]"}
+                                          {"message": "/account/register/register[get]"}
                                       }))
     exist_id = 0  # アカウントの存在
     authenticated = 0  # すでにログインしているか
@@ -178,7 +233,7 @@ def register():
         return make_response(jsonify({
             "error": 1,
             "content": {
-                "authentocated": authenticated,
+                "authenticated": authenticated,
                 "exist_id": exist_id,
                 "bad_id": bad_id,
                 "bad_name": bad_name,
@@ -186,21 +241,72 @@ def register():
                 "password_confirm_does_not_match": password_confirm_does_not_match
             }
         }))
+    code = "%04d" % random.randint(0, 9999)
     token = secrets.token_hex()
-    user = User(user_id=request_json["user_id"], name=request_json["name"],
-                password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token)
+    user = Mail_verify(user_id=request_json["user_id"], name=request_json["name"],
+                       password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token,
+                       code=code, email=request_json["email"])
+    if today < datetime.datetime.today():
+        session.query(User).delete()
+
     session.add(user)
-    session.commit()  # 無かった場合、登録します。
+    session.commit()
+    send_mail(code=code, email=request_json["email"], name=request_json["name"])
     return make_response(jsonify({
         "error": 0,
         "content": {
-            "logged_id": user.id,
-            "logged_user_id": request_json["user_id"],
-            "logged_pass": request_json["password"],
-            "token": token,
-            "message": "successful registration"
+            "verify_id": user.id
         }
     }))
+
+
+@app.route('/account/register/verify', methods=['GET', 'POST'])  # アカウント登録用のディレクトリです
+def register_verify():
+    if request.method == "GET":
+        return make_response(jsonify({"error": 0,
+                                      "content":
+                                          {"message": "/account/register/verify[get]"}
+                                      }))
+    invalid_id = 0
+    authenticated = 0
+    invalid_code = 0
+    request_json = request.get_json()
+    print(request_json)
+
+    if request_json["authenticated"]:
+        authenticated = 1
+    verify = session.query(Mail_verify).filter(Mail_verify.id.in_([request_json["verify_id"]])).first()
+    if not verify:
+        invalid_id = 1
+    else:
+        verify = session.query(Mail_verify).filter(Mail_verify.id.in_([request_json["verify_id"]]),
+                                                   Mail_verify.code.in_([request_json["code"]])).first()
+        if not verify:
+            invalid_code = 1
+
+    if invalid_code or authenticated or invalid_id:
+        return make_response(jsonify({
+            "error": 1,
+            "content": {
+                "authenticated": authenticated,
+                "invalid_verify_id": invalid_id,
+                "invalid_code": invalid_code
+            }
+        }))
+    user = User(user_id=verify.user_id, name=verify.name,
+                password=verify.password, token=verify.token,
+                email=verify.email)
+    session.add(user)
+    session.delete(verify)
+    session.commit()
+    return make_response(jsonify({"error": 0,
+                                  "content": {
+                                      "logged_id": user.id,
+                                      "logged_user_id": user.user_id,
+                                      "token": user.token,
+                                      "message": "successful registration"
+                                  }
+                                  }))
 
 
 @app.route('/account/login', methods=["GET", "POST"])  # ログイン用のディレクトリです
@@ -242,7 +348,6 @@ def login():
             }
         }))
 
-
 @app.route("/account/logout", methods=["GET", "POST"])
 def logout():
     if request.method == "GET":
@@ -273,7 +378,6 @@ def logout():
                                       "invalid_verify": invalid_verify
                                   }
                                   }))
-
 
 @app.route('/account/modify', methods=['GET', 'POST'])  # ユーザー情報変更のディレクトリです。
 def account_modify():
@@ -309,7 +413,8 @@ def account_modify():
             bad_password = 1
         if request_json["modify"]["password"] != request_json["modify"]["password_confirm"]:
             password_confirm_does_not_match = 1
-        if not (exist_id or bad_id or bad_name or bad_password or password_confirm_does_not_match or invalid_verify):
+        if not (
+                exist_id or bad_id or bad_name or bad_password or password_confirm_does_not_match or invalid_verify):
             if request_json["modify"]["user_id"]:
                 user.user_id = request_json["modify"]["user_id"]
             if request_json["modify"]["password"]:
@@ -335,7 +440,6 @@ def account_modify():
                                       "password_confirm_does_not_match": password_confirm_does_not_match
                                   }
                                   }))
-
 
 @app.route("/friend/add", methods=["GET", "POST"])
 def add_friend():
@@ -386,7 +490,6 @@ def add_friend():
                                       "message": "added successfully"
                                   }
                                   }))
-
 
 @app.route("/friend/remove", methods=["GET", "POST"])
 def remove_friend():
@@ -439,7 +542,6 @@ def remove_friend():
                                   }
                                   }))
 
-
 @app.route("/friend/list", methods=["GET", "POST"])
 def friends_list():
     if request.method == "GET":
@@ -473,7 +575,6 @@ def friends_list():
                                                   }
                                   }
                                   }))
-
 
 @app.route("/chat/get", methods=["GET", "POST"])
 def chat_get():
@@ -509,7 +610,8 @@ def chat_get():
                                                   "content": {
                                                       "new": [
                                                           {"sent_user_id": cont.user_id,
-                                                           "sent_user_name": session.query(User).get(cont.user_id).name,
+                                                           "sent_user_name": session.query(User).get(
+                                                               cont.user_id).name,
                                                            "content_type": cont.type,
                                                            "content_content": cont.content,
                                                            "content_id": cont.id,
@@ -533,7 +635,8 @@ def chat_get():
                                                   "content": {
                                                       "new": [
                                                           {"sent_user_id": cont.user_id,
-                                                           "sent_user_name": session.query(User).get(cont.user_id).name,
+                                                           "sent_user_name": session.query(User).get(
+                                                               cont.user_id).name,
                                                            "content_type": cont.type,
                                                            "content_content": cont.content,
                                                            "content_id": cont.id
@@ -542,11 +645,10 @@ def chat_get():
                                                                   request_json["content"]["talk_his"], talk)).all()]
                                                   }
                                               } for talk in user.talk_groups.filter(
-                                                Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
+                                              Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
                                           }
                                       },
                                       }))
-
 
 @app.route("/chat/send", methods=["GET", "POST"])
 def chat_send():
@@ -602,7 +704,6 @@ def chat_send():
                                   }
                                   }))
 
-
 @app.route("/chat/make", methods=["GET", "POST"])
 def chat_goup_make():
     if request.method == "GET":
@@ -624,7 +725,6 @@ def chat_goup_make():
                         "message": "sent successfully"
                     }
                     })
-
 
 @app.route("/chat/join/self", methods=["GET", "POST"])
 def chat_join():
@@ -666,9 +766,8 @@ def chat_join():
                                   }
                                   }))
 
-
 @app.route("/chat/leave/self", methods=["GET", "POST"])
-def chat_join():
+def chat_leave():
     if request.method == "GET":
         return make_response(jsonify({"error": 0,
                                       "content": {
@@ -707,9 +806,8 @@ def chat_join():
                                   }
                                   }))
 
-
 @app.route("/chat/leave/other", methods=["GET", "POST"])
-def chat_join_other():
+def chat_leave_other():
     if request.method == "GET":
         return make_response(jsonify({"error": 0,
                                       "content": {
@@ -727,7 +825,8 @@ def chat_join_other():
     if request_json["content"]["use_id"]:
         target_user = session.query(User).get(request_json["content"]["target_user_id"])
     else:
-        target_user = session.query(User).filter(User.user_id.in_([request_json["content"]["target_user_id"]])).first()
+        target_user = session.query(User).filter(
+            User.user_id.in_([request_json["content"]["target_user_id"]])).first()
     target_group = session.query(Talk_group).get(request_json["content"]["target_group"])
     if not request_json["authenticated"]:
         not_authenticated = 1
@@ -742,7 +841,7 @@ def chat_join_other():
         target_not_joined = 1
     if not target_group:
         invalid_talk_id = 1
-    if not_authenticated or invalid_verify or already_joined or invalid_talk_id or\
+    if not_authenticated or invalid_verify or already_joined or invalid_talk_id or \
             invalid_user_id or target_not_joined:
         return make_response(jsonify({"error": 1,
                                       "content": {
@@ -763,7 +862,6 @@ def chat_join_other():
                                   }
                                   }))
 
-
 @app.route("/friend/search", methods=["GET", "POST"])
 def friend_search():
     if request.method == "GET":
@@ -781,7 +879,8 @@ def friend_search():
     if request_json["content"]["use_id"]:
         target_user = session.query(User).get(request_json["content"]["target_user_id"])
     else:
-        target_user = session.query(User).filter(User.user_id.in_([request_json["content"]["target_user_id"]])).first()
+        target_user = session.query(User).filter(
+            User.user_id.in_([request_json["content"]["target_user_id"]])).first()
 
     if not request_json["authenticated"]:
         not_authenticated = 1
@@ -805,9 +904,6 @@ def friend_search():
                                       "name": target_user.name
                                   }
                                   }))
-
-
-
 
 
 if __name__ == "__main__":
