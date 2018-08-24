@@ -1,6 +1,7 @@
-
+# Tokyo_B_server
 - /
-- /account/register
+- /account/register/register
+- /account/register/verify
 - /account/login
 - /account/logout
 - /account/modify
@@ -13,6 +14,8 @@
 - /chat/make
 - /chat/join/self
 - /chat/join/other
+- /chat/leave/self
+- /chat/leave/other
 
 # / [get]
 ---
@@ -24,13 +27,14 @@
     }
 }
 ```
-# /account/register [get / post]
+
+# /account/register/register [get / post]
 ---
 ### GET
 ```
 {"error": 0,
 "content": {
-    "message": "/account/register[get]"
+    "message": "/account/register/register[get]"
     }
 }
 ```
@@ -38,17 +42,18 @@
 
 #### request
 ```
-{"target": "/account/register",
+{"target": "/account/register/register",
 "authenticated": <authenticated>,
 "user_id": <user_id>,
 "name": <name>,
+"email": <email-address>
 "password": <password>,
 "password_confirm": <password>
 }
 ```
 #### response
 * エラー有りの場合
-    * すでにログインしている状態での/account/registerへのpostは認められません。
+    * すでにログインしている状態での/account/register/registerへのpostは認められません。
     * 既存アカウントに重複するような"user_id"は使用できません。
     * 3文字以下、13文字以上、英数字以外の"user_id"は認められません。
     * 0文字、もしくは32文字以上の"name"は認められません。
@@ -70,14 +75,57 @@
 ```
 {"error": 0,
 "content": {
+    "verify_id": <verify_id>
+    }
+}
+```
+
+# /account/register/verify [get / post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/account/register/verify[get]"
+    }
+}
+```
+### POST
+
+#### request
+```
+{"target": "/account/register/verify",
+"authenticated": <authenticated>,
+"verify_id": <user_id>,
+"code": <code>
+}
+```
+#### response
+* エラー有りの場合
+    * すでにログインしている状態での/account/register/verifyへのpostは認められません。
+    * 存在しない"verify_id"は認められません。
+    * 合致しない"verify_id", "code"は認められません。
+```
+{"error": 1,
+"content": {
+    "authenticated": <0 or 1>,
+    "invalid_verify_id": <0 or 1>,
+    "invalid_code": <0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+"content": {
     "logged_id": <id>
     "logged_user_id": <user_id>,
-    "logged_pass" <password>,
     "token": <token>,
     "message": "successful registration"
     }
 }
 ```
+
 # /account/login [get / post]
 ---
 ### GET
@@ -538,55 +586,6 @@
     }
 }
 ```
-
-# /chat/join/self [get, post]
----
-### GET
-```
-{"error": 0,
-"content": {
-    "message": "/chat/join/self[get]"
-    }
-}
-```
-### POST
-#### request
-```
-{"target": "/chat/join/self",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
-"content": {
-    "target_group": <group_id>
-    }
-}
-```
-#### response
-* エラー有りの場合
-    * ログインしていない状態での/chat/join/selfへのpostは認められません。
-    * 合致しない"id", "token"でのpostは認められません。
-    * 存在しない"content"-"target_group"は認められません。
-    * すでに参加しているgroupをtargetには指定できません。
-```
-{"error": 1,
-"content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_talk_id": <0 or 1>,
-    "personal_chat": <0 or 1>,
-    "already_joined": <0 or 1>
-    }
-}
-```
-* エラーなしの場合
-```
-{"error": 0,
-"content": {
-    "message": "seccess"
-    }
-}
-```
-
 # /chat/make [get, post]
 ---
 ### GET
@@ -633,6 +632,54 @@
 }
 ```
 
+# /chat/join/self [get, post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/chat/join/self[get]"
+    }
+}
+```
+### POST
+#### request
+```
+{"target": "/chat/join/self",
+"authenticated": <authenticated>,
+"id": <id>,
+"token": <token>,
+"content": {
+    "target_group": <group_id>
+    }
+}
+```
+#### response
+* エラー有りの場合
+    * ログインしていない状態での/chat/join/selfへのpostは認められません。
+    * 合致しない"id", "token"でのpostは認められません。
+    * 存在しない"content"-"target_group"は認められません。
+    * すでに参加しているgroupをtargetには指定できません。
+```
+{"error": 1,
+"content": {
+    "not_authenticated": <0 or 1>,
+    "invalid_verify": <0 or 1>,
+    "invalid_talk_id": <0 or 1>,
+    "already_joined": <0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+"content": {
+    "message": "seccess"
+    }
+}
+```
+
+
 # /chat/join/other [get, post]
 ---
 ### GET
@@ -673,9 +720,110 @@
     "invalid_verify": <0 or 1>,
     "invalid_user_id": <0 or 1>,
     "invalid_talk_id": <0 or 1>,
-    "personal_chat": <0 or 1>,
     "user_not_joined": <0 or 1>,
     "already_joined": <0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+"content": {
+    "message": "seccess"
+    }
+}
+```
+
+# /chat/leave/self [get, post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/chat/join/self[get]"
+    }
+}
+```
+### POST
+#### request
+```
+{"target": "/chat/join/self",
+"authenticated": <authenticated>,
+"id": <id>,
+"token": <token>,
+"content": {
+    "target_group": <group_id>
+    }
+}
+```
+#### response
+* エラー有りの場合
+    * ログインしていない状態での/chat/join/selfへのpostは認められません。
+    * 合致しない"id", "token"でのpostは認められません。
+    * 存在しない"content"-"target_group"は認められません。
+    * 参加していないgroupをtargetには指定できません。
+```
+{"error": 1,
+"content": {
+    "not_authenticated": <0 or 1>,
+    "invalid_verify": <0 or 1>,
+    "invalid_talk_id": <0 or 1>,
+    "not_joined": <0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+"content": {
+    "message": "seccess"
+    }
+}
+```
+
+
+# /chat/leave/other [get, post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/chat/join/other[get]"
+    }
+}
+```
+### POST
+#### request
+* "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
+```
+{"target": "/chat/join/other",
+"authenticated": <authenticated>,
+"id": <id>,
+"token": <token>,
+"content": {
+    "use_id": <0 or 1>,
+    "target_user_id": <user_id>,
+    "target_group": <group_id>
+    }
+}
+```
+#### response
+* エラー有りの場合
+    * ログインしていない状態での/chat/join/otherへのpostは認められません。
+    * 合致しない"id", "token"でのpostは認められません。
+    * 存在しない"content"-"target_user_id"は認められません。
+    * 存在しない"content"-"target_group"は認められません。
+    * "content"-"target_group"にはpost元のユーザが参加していなければなりません。
+    * ターゲットユーザが参加していないgroupを"content"-"target_group"には指定できません。
+```
+{"error": 1,
+"content": {
+    "not_authenticated": <0 or 1>,
+    "invalid_verify": <0 or 1>,
+    "invalid_user_id": <0 or 1>,
+    "invalid_talk_id": <0 or 1>,
+    "user_not_joined": <0 or 1>,
+    "target_not_joined": <0 or 1>
     }
 }
 ```
