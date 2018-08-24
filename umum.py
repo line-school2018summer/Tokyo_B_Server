@@ -244,16 +244,19 @@ def register():
             }
         }))
     code = "%04d" % random.randint(0, 9999)
+    send_mail(code=code, email=request_json["email"], name=request_json["name"])
     token = secrets.token_hex()
     user = Mail_verify(user_id=request_json["user_id"], name=request_json["name"],
                        password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token,
                        code=code, email=request_json["email"])
+
+    global today
     if today < datetime.datetime.today():
-        session.query(User).delete()
+        session.query(Mail_verify).delete()
+        today = datetime.datetime.today()
 
     session.add(user)
     session.commit()
-    send_mail(code=code, email=request_json["email"], name=request_json["name"])
     return make_response(jsonify({
         "error": 0,
         "content": {
