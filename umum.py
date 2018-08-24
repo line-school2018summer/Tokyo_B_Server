@@ -215,7 +215,6 @@ def register():
     bad_password = 0  # passwordのよしあし
     password_confirm_does_not_match = 0  # passwordのコンファームが合致しているかどうかです
     request_json = request.get_json()
-    print(request_json)
 
     if request_json["authenticated"]:
         authenticated = 1
@@ -223,12 +222,10 @@ def register():
         exist_id = 1
     if not id_re.match(request_json["user_id"]):
         bad_id = 1
-        print(request_json["user_id"])
     if not 0 < len(request_json["name"]) < 32:
         bad_name = 1
     if not passw_re.match(request_json["password"]):
         bad_password = 1
-        print(request_json["password"])
     if request_json["password"] != request_json["password_confirm"]:
         password_confirm_does_not_match = 1
 
@@ -255,7 +252,6 @@ def register():
     if today < datetime.date.today():
         session.query(Mail_verify).delete()
         today = datetime.date.today()
-        print("ee")
 
     session.add(user)
     session.commit()
@@ -278,7 +274,6 @@ def register_verify():
     authenticated = 0
     invalid_code = 0
     request_json = request.get_json()
-    print(request_json)
 
     if request_json["authenticated"]:
         authenticated = 1
@@ -518,7 +513,6 @@ def remove_friend():
     unexist_id = 0
     self_removing = 0
     already_stranger = 0
-    print(request_json)
 
     user = verify_token(request_json["id"], request_json["token"])
     if not request_json["authenticated"]:
@@ -779,7 +773,7 @@ def chat_join():
     session.commit()
     return make_response(jsonify({"error": 0,
                                   "content": {
-                                      "message": "seccess"
+                                      "message": "success"
                                   }
                                   }))
 
@@ -820,7 +814,7 @@ def chat_leave():
     session.commit()
     return make_response(jsonify({"error": 0,
                                   "content": {
-                                      "message": "seccess"
+                                      "message": "success"
                                   }
                                   }))
 
@@ -873,11 +867,68 @@ def chat_leave_other():
                                           "target_not_joined": target_not_joined
                                       }
                                       }))
-    target_user.talk_groups.remve(target_group)
+    target_user.talk_groups.remove(target_group)
     session.commit()
     return make_response(jsonify({"error": 0,
                                   "content": {
-                                      "message": "seccess"
+                                      "message": "success"
+                                  }
+                                  }))
+
+
+@app.route("/chat/join/other", methods=["GET", "POST"])
+def chat_join_other():
+    if request.method == "GET":
+        return make_response(jsonify({"error": 0,
+                                      "content": {
+                                          "message": "/chat/join/other[get]"
+                                      }
+                                      }))
+    request_json = request.get_json()
+    not_authenticated = 0
+    invalid_verify = 0
+    invalid_user_id = 0
+    invalid_talk_id = 0
+    user_not_joined = 0
+    already_joined = 0
+    
+    user = verify_token(request_json["id"], request_json["token"])
+    if request_json["content"]["use_id"]:
+        target_user = session.query(User).get(request_json["content"]["target_user_id"])
+    else:
+        target_user = session.query(User).filter(
+            User.user_id.in_([request_json["content"]["target_user_id"]])).first()
+    target_group = session.query(Talk_group).get(request_json["content"]["target_group"])
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid_verify = 1
+    else:
+        if target_group not in user.talk_groups:
+            user_not_joined = 1
+    if not target_user:
+        invalid_user_id = 1
+    elif target_group in target_user.talk_groups:
+        already_joined = 1
+    if not target_group:
+        invalid_talk_id = 1
+    if not_authenticated or invalid_verify or already_joined or invalid_talk_id or \
+            invalid_user_id:
+        return make_response(jsonify({"error": 1,
+                                      "content": {
+                                          "not_authenticated": not_authenticated,
+                                          "invalid_verify": invalid_verify,
+                                          "invalid_user_id": invalid_user_id,
+                                          "invalid_talk_id": invalid_talk_id,
+                                          "user_not_joined": user_not_joined,
+                                          "already_joined": already_joined
+                                      }
+                                      }))
+    target_user.talk_groups.append(target_group)
+    session.commit()
+    return make_response(jsonify({"error": 0,
+                                  "content": {
+                                      "message": "success"
                                   }
                                   }))
 
