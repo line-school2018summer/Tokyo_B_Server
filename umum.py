@@ -334,7 +334,6 @@ def login():
             "content": {
                 "logged_id": result.id,
                 "logged_user_id": request_json["user_id"],
-                "logged_pass": request_json["password"],
                 "logged_name": result.name,
                 "token": token,
                 "message": "logged in successfully"
@@ -672,6 +671,7 @@ def chat_send():
     invalid_talk_id = 0
     invalid_verify = 0
     too_long_text = 0
+    not_join = 0
     meaningless_text = 0
 
     user = verify_token(request_json["id"], request_json["token"])
@@ -688,11 +688,15 @@ def chat_send():
     talk = session.query(Talk_group).get(request_json["content"]["talk_id"])
     if not talk:
         invalid_talk_id = 1
-    if not_authenticated or invalid_verify or too_long_text or meaningless_text or invalid_talk_id:
+    else:
+        if user not in talk.users:
+            not_join = 1
+    if not_authenticated or invalid_verify or too_long_text or meaningless_text or invalid_talk_id or not_join:
         return make_response(jsonify({"error": 1,
                                       "content": {
                                           "not_authenticated": not_authenticated,
                                           "invalid_verify": invalid_verify,
+                                          "not_join": not_join,
                                           "invalid_talk_id": invalid_talk_id,
                                           "too_long_text": too_long_text,
                                           "meaningless_text": meaningless_text
@@ -834,6 +838,7 @@ def chat_leave_other():
     invalid_talk_id = 0
     user_not_joined = 0
     target_not_joined = 0
+
     user = verify_token(request_json["id"], request_json["token"])
     if request_json["content"]["use_id"]:
         target_user = session.query(User).get(request_json["content"]["target_user_id"])
@@ -854,7 +859,7 @@ def chat_leave_other():
         target_not_joined = 1
     if not target_group:
         invalid_talk_id = 1
-    if not_authenticated or invalid_verify or already_joined or invalid_talk_id or \
+    if not_authenticated or invalid_verify or user_not_joined or invalid_talk_id or \
             invalid_user_id or target_not_joined:
         return make_response(jsonify({"error": 1,
                                       "content": {
@@ -973,6 +978,52 @@ def friend_search():
                                       "id": target_user.id,
                                       "user_id": target_user.user_id,
                                       "name": target_user.name
+                                  }
+                                  }))
+
+
+@app.route("/chat/member", methods=["GET", "POST"])
+def member_list():
+    if request.method == "GET":
+        return make_response(jsonify({"error": 0,
+                                      "content": {
+                                          "message": "/chat/member[get]"
+                                      }
+                                      }))
+    request_json = request.get_json()
+    not_authenticated = 0
+    invalid_verify = 0
+    invalid_group_id = 0
+    not_joined = 0
+
+    user = verify_token(request_json["id"], request_json["token"])
+
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid_verify = 1
+    target_group = session.query(Talk_group).get(request_json["content"]["target_group"])
+    if not target_group:
+        invalid_group_id = 1
+    else:
+        if user not in target_group.users:
+            not_joined = 1
+    if not_authenticated or invalid_verify or invalid_group_id or not_joined:
+        return make_response(jsonify({"error": 1,
+                                      "content": {
+                                          "not_authenticated": not_authenticated,
+                                          "invalid_verify": invalid_verify,
+                                          "invalid_group_id": invalid_group_id,
+                                          "user_not_joined": not_joined
+                                      }
+                                      }))
+
+    return make_response(jsonify({"error": 0,
+                                  "content": {
+                                      u.id: {
+                                          "user_id": u.user_id,
+                                          "name": u.name
+                                      } for u in target_group.users
                                   }
                                   }))
 

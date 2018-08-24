@@ -16,6 +16,7 @@
 - /chat/join/other
 - /chat/leave/self
 - /chat/leave/other
+- /chat/member
 
 # / [get]
 ---
@@ -143,6 +144,7 @@
 "authenticated": <int: authenticated>,
 "user_id": <str: user_id>,
 "password": <str: password>
+}
 ```
 #### response
 * エラー有りの場合 
@@ -165,7 +167,6 @@
 "content": {
     "logged_id": <int: id>
     "logged_user_id": <str: user_id>,
-    "logged_pass" <str: password>,
     "logged_name": <str: name>
     "token": <str: token>,
     "message": "logged in successfully"
@@ -189,6 +190,7 @@
 "authenticated": <int: authenticated>,
 "id": <int: id>,
 "token": <str: token>
+}
 ```
 #### response
 * エラー有りの場合
@@ -488,6 +490,7 @@
 * エラー有りの場合
     * ログインしていない状態での/chat/personalへのpostは認められません。
     * 合致しない"id", "token"でのpostは認められません。
+    * 参加していないグループへのsendは認められません。
     * 存在しない"content"-"talk_id"でのpostは認められません。
     * "content"-"type"には{1: text, 2: stamp, 3: image}に割り当てられた数字しか認められません。
     * "content"-"type"が1のとき、1024文字以上の"content"-"content"は認められません。
@@ -497,6 +500,7 @@
 "content": {
     "not_authenticated": <int: 0 or 1>,
     "invalid_verify": <int: 0 or 1>,
+    "not_join": <int: 0 or 1>,
     "invalid_talk_id": <int: 0 or 1>,
     "too_long_text": <int: 0 or 1>,
     "meaningless_text": <int: 0 or 1>
@@ -531,7 +535,7 @@
 "id": <int: id>,
 "token": <str: token>,
 "content": {
-    "talk_all_need": <int: 0 or 1>
+    "talk_all_need": <int: 0 or 1>,
     "talk_his": {
             <int: talk_id>: <int: latest_content_id>,
             <int: talk_id>: <int: latest_content_id>,
@@ -627,7 +631,7 @@
 ```
 {"error": 0,
 "content": {
-    "message": "seccess"
+    "message": "success"
     }
 }
 ```
@@ -674,7 +678,7 @@
 ```
 {"error": 0,
 "content": {
-    "message": "seccess"
+    "message": "success"
     }
 }
 ```
@@ -729,7 +733,7 @@
 ```
 {"error": 0,
 "content": {
-    "message": "seccess"
+    "message": "success"
     }
 }
 ```
@@ -776,7 +780,7 @@
 ```
 {"error": 0,
 "content": {
-    "message": "seccess"
+    "message": "success"
     }
 }
 ```
@@ -802,7 +806,7 @@
 "token": <str: token>,
 "content": {
     "use_id": <int: 0 or 1>,
-    "target_user_id": <int: user_id>,
+    "target_user_id": <str/int: user_id>,
     "target_group": <str: group_id>
     }
 }
@@ -832,6 +836,59 @@
 {"error": 0,
 "content": {
     "message": "seccess"
+    }
+}
+```
+
+# /chat/member [get, post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/chat/member[get]"
+    }
+}
+```
+### POST
+#### request
+```
+{"target": "/chat/join/other",
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
+"content": {
+    "target_group": <str: group_id>
+    }
+}
+```
+#### response
+* エラー有りの場合
+    * ログインしていない状態での"/caht/mamber"へのpostは認められません。
+    * 合致しない"id", "token"でのpostは認められません。
+    * 存在しない"group_id"は認められません。
+    * 参加していないグループは"content"-"target_group"として認められません。
+```
+{"error": 1,
+"content": {
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_group_id": <int: 0 or 1>,
+    "user_not_joined": <int: 0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+"content": {
+    "message": "member_list",
+    "friends":{
+        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
+        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
+        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
+        ...
+        }
     }
 }
 ```
