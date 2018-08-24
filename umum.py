@@ -155,7 +155,7 @@ def register():
     bad_id = 0  # idのよしあし
     bad_name = 0  # nameのよしあし
     bad_password = 0  # passwordのよしあし
-    password_confirm_does_not_match = 0  # passwordのコンファームが合致しているかどうかです
+    password_confirm_does_not_match = 0
     request_json = request.get_json()
     print(request_json)
 
@@ -474,6 +474,7 @@ def friends_list():
                                   }
                                   }))
 
+    user = verify_token(request_json["id"], request_json["token"])
 
 @app.route("/chat/get", methods=["GET", "POST"])
 def chat_get():
@@ -729,7 +730,6 @@ def chat_join_other():
                                   }
                                   }))
 
-
 @app.route("/friend/search", methods=["GET", "POST"])
 def friend_search():
     if request.method == "GET":
@@ -742,7 +742,6 @@ def friend_search():
     not_authenticated = 0
     invalid_verify = 0
     invalid_user_id = 0
-
     user = verify_token(request_json["id"], request_json["token"])
     if request_json["content"]["use_id"]:
         target_user = session.query(User).get(request_json["content"]["target_user_id"])
@@ -771,8 +770,6 @@ def friend_search():
                                       "name": target_user.name
                                   }
                                   }))
-
-
 
 
 
