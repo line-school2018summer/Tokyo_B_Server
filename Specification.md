@@ -1,6 +1,7 @@
 # Tokyo_B_server
 - /
-- /account/register
+- /account/register/register
+- /account/register/verify
 - /account/login
 - /account/logout
 - /account/modify
