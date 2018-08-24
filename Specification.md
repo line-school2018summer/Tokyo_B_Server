@@ -43,12 +43,12 @@
 #### request
 ```
 {"target": "/account/register/register",
-"authenticated": <authenticated>,
-"user_id": <user_id>,
-"name": <name>,
-"email": <email-address>
-"password": <password>,
-"password_confirm": <password>
+"authenticated": <int: authenticated>,
+"user_id": <str: user_id>,
+"name": <str: name>,
+"email": <str: email-address>
+"password": <str: password>,
+"password_confirm": <str: password>
 }
 ```
 #### response
@@ -62,12 +62,12 @@
 ```
 {"error": 1,
 "content": {
-    "authenticated": <0 or 1>,
-    "exist_id": <0 or 1>,
-    "bad_id": <0 or 1>,
-    "bad_name": <0 or 1>,
-    "bad_password": <0 or 1>,
-    "password_confirm_does_not_match": <0 or 1>
+    "authenticated": <int: 0 or 1>,
+    "exist_id": <int: 0 or 1>,
+    "bad_id": <int: 0 or 1>,
+    "bad_name": <int: 0 or 1>,
+    "bad_password": <int: 0 or 1>,
+    "password_confirm_does_not_match": <int: 0 or 1>
     }
 }
 ```
@@ -75,7 +75,7 @@
 ```
 {"error": 0,
 "content": {
-    "verify_id": <verify_id>
+    "verify_id": <int: verify_id>
     }
 }
 ```
@@ -95,9 +95,9 @@
 #### request
 ```
 {"target": "/account/register/verify",
-"authenticated": <authenticated>,
-"verify_id": <user_id>,
-"code": <code>
+"authenticated": <int: authenticated>,
+"verify_id": <int: verify_id>,
+"code": <str: code>
 }
 ```
 #### response
@@ -108,9 +108,9 @@
 ```
 {"error": 1,
 "content": {
-    "authenticated": <0 or 1>,
-    "invalid_verify_id": <0 or 1>,
-    "invalid_code": <0 or 1>
+    "authenticated": <int: 0 or 1>,
+    "invalid_verify_id": <int: 0 or 1>,
+    "invalid_code": <int: 0 or 1>
     }
 }
 ```
@@ -118,9 +118,9 @@
 ```
 {"error": 0,
 "content": {
-    "logged_id": <id>
-    "logged_user_id": <user_id>,
-    "token": <token>,
+    "logged_id": <int: id>
+    "logged_user_id": <str: user_id>,
+    "token": <str: token>,
     "message": "successful registration"
     }
 }
@@ -140,9 +140,9 @@
 #### request
 ```
 {"target": "/account/login", 
-"authenticated": <authenticated>,
-"user_id": <user_id>,
-"password": <password>
+"authenticated": <int: authenticated>,
+"user_id": <str: user_id>,
+"password": <str: password>
 ```
 #### response
 * エラー有りの場合 
@@ -153,9 +153,9 @@
 ```
 {"error": 1, 
 "content": {
-    "authenticated": <0 or 1>,
-    "missing_id": <0 or 1>,
-    "invalid_password": <0 or 1>
+    "authenticated": <int: 0 or 1>,
+    "missing_id": <int: 0 or 1>,
+    "invalid_password": <int: 0 or 1>
     }
 }
 ```
@@ -163,10 +163,11 @@
 ```
 {"error": 0, 
 "content": {
-    "logged_id": <id>
-    "logged_user_id": <user_id>,
-    "logged_pass" <password>,
-    "token": <token>,
+    "logged_id": <int: id>
+    "logged_user_id": <str: user_id>,
+    "logged_pass" <str: password>,
+    "logged_name": <str: name>
+    "token": <str: token>,
     "message": "logged in successfully"
     }
 }
@@ -185,9 +186,9 @@
 #### request
 ```
 {"target": "/account/logout", 
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>
 ```
 #### response
 * エラー有りの場合
@@ -196,8 +197,8 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
     }
 }
 ```
@@ -224,14 +225,14 @@
 "modify"内は変更先の情報を入力してください。空白は変更なしと捉えます。
 ```
 {"target": "/account/modify",
-"authenticated": <authenticated>,
-"id": <user_id>,
-"password": <password>,
+"authenticated": <int: authenticated>,
+"user_id": <str: user_id>,
+"password": <str: password>,
 "modify": {
-    "user_id": <modify_id>,
-    "name": <modify_name>,
-    "password": <modify_password>,
-    "password_confirm": <modify_password>
+    "user_id": <str: modify_id>,
+    "name": <str: modify_name>,
+    "password": <str: modify_password>,
+    "password_confirm": <str: modify_password>
 },
 }
 ```
@@ -247,13 +248,13 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "exist_id": <0 or 1>,
-    "bad_id": <0 or 1>,
-    "bad_name": <0 or 1>,
-    "bad_password": <0 or 1>,
-    "password_confirm_does_not_match": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "exist_id": <int: 0 or 1>,
+    "bad_id": <int: 0 or 1>,
+    "bad_name": <int: 0 or 1>,
+    "bad_password": <int: 0 or 1>,
+    "password_confirm_does_not_match": <int: 0 or 1>
     }
 }
 ```
@@ -261,8 +262,8 @@
 ```
 {"error": 0,
 "content": {
-    "new_id": <user_id>,
-    "new_name": <name>,
+    "new_id": <str: user_id>,
+    "new_name": <str: name>,
     "message": "modified successfully"
     }
 }
@@ -282,11 +283,11 @@
 #### request
 ```
 {"target": "/friend/add",
-"authenticated": <authenticated>,
-"use_id": <0 or 1>
-"id": <id>,
-"token": <token>,
-"target_id": <target_user_id>
+"authenticated": <int: authenticated>,
+"use_id": <int: 0 or 1>
+"id": <int: id>,
+"token": <str: token>,
+"target_id": <str: target_user_id>
 }
 ```
 #### response
@@ -299,11 +300,11 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "unexist_id": <0 or 1>,
-    "self_adding": <0 or 1>,
-    "already_friend": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "unexist_id": <int: 0 or 1>,
+    "self_adding": <int: 0 or 1>,
+    "already_friend": <int: 0 or 1>
     }
 }
 ```
@@ -331,11 +332,11 @@
 #### request
 ```
 {"target": "/friend/remove",
-"authenticated": <authenticated>,
-"use_id": <0 or 1>
-"id": <id>,
-"token": <token>,
-"target_id": <target_user_id>
+"authenticated": <int: authenticated>,
+"use_id": <int: 0 or 1>
+"id": <int: str/int: id>,
+"token": <str: token>,
+"target_id": <str: target_user_id>
 }
 ```
 #### response
@@ -348,11 +349,11 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>
-    "unexist_id": <0 or 1>,
-    "self_removing": <0 or 1>,
-    "already_stranger": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>
+    "unexist_id": <int: 0 or 1>,
+    "self_removing": <int: 0 or 1>,
+    "already_stranger": <int: 0 or 1>
     }
 }
 ```
@@ -379,9 +380,9 @@
 #### request
 ```
 {"target": "/friend/list",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>
 }
 ```
 #### response
@@ -391,8 +392,8 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>
     }
 }
 ```
@@ -402,9 +403,9 @@
 "content": {
     "message": "friends_list",
     "friends":{
-        <id>: {"user_id": <str(user_id)>, "name": <str(name)>},
-        <id>: {"user_id": <str(user_id)>, "name": <str(name)>},
-        <id>: {"user_id": <str(user_id)>, "name": <str(name)>},
+        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
+        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
+        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
         ...
         }
     }
@@ -425,12 +426,12 @@
 * "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
 ```
 {"target": "/friend/search",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "use_id": <0 or 1>,
-    "target_user_id": <user_id>
+    "use_id": <int: 0 or 1>,
+    "target_user_id": <int: str/int: user_id>
     }
 }
 ```
@@ -442,9 +443,9 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_user_id": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_user_id": <int: 0 or 1>
     }
 }
 ```
@@ -452,9 +453,9 @@
 ```
 {"error": 0,
     "content": {
-        "id": <id>,
-        "user_id": <user_id>,
-        "name": <name>
+        "id": <int: id>,
+        "user_id": <str: user_id>,
+        "name": <str: name>
     }
 }
 ```
@@ -473,13 +474,13 @@
 #### request
 ```
 {"target": "/chat/send",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "talk_id": <talk_id>,
-    "type": <type>,
-    "content": <content>
+    "talk_id": <int: talk_id>,
+    "type": <int: type>,
+    "content": <str: content>
     }
 }
 ```
@@ -494,11 +495,11 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_talk_id": <0 or 1>,
-    "too_long_text": <0 or 1>,
-    "meaningless_text": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_talk_id": <int: 0 or 1>,
+    "too_long_text": <int: 0 or 1>,
+    "meaningless_text": <int: 0 or 1>
     }
 }
 ```
@@ -506,7 +507,7 @@
 ```
 {"error": 0,
 "content": {
-    "talk_id": <talk_id>,
+    "talk_id": <int: talk_id>,
     "message": "sent successfully"
     }
 }
@@ -526,15 +527,15 @@
 #### request
 ```
 {"target": "/chat/get",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "talk_all_need": <0 or 1>
+    "talk_all_need": <int: 0 or 1>
     "talk_his": {
-            <talk_id>: <latest_content_id>,
-            <talk_id>: <latest_content_id>,
-            <talk_id>: <latest_content_id>,
+            <int: talk_id>: <int: latest_content_id>,
+            <int: talk_id>: <int: latest_content_id>,
+            <int: talk_id>: <int: latest_content_id>,
             ...
         }
     }
@@ -549,8 +550,8 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>
     }
 }
 ```
@@ -561,26 +562,25 @@
 {"error": 0,
 "content": {
     "talk": {
-        <talk_id>: {
-            "name": <talk_group_name>,
+        <int: talk_id>: {
+            "name": <str: talk_group_name>,
             "new": {
-                {"sent_user_id": <user_id>, "sent_user_name": <user_name>, "content_type": <content_type> "content_content"<content>, "content_id": <content_id>},
-                {"sent_user_id": <user_id>, "sent_user_name": <user_name>, "content_type": <content_type> "content_content"<content>, "content_id": <content_id>},
-                {"sent_user_id": <user_id>, "sent_user_name": <user_name>, "content_type": <content_type> "content_content"<content>, "content_id": <content_id>},
+                {"sent_user_id": <str: user_id>, "sent_user_name": <str: user_name>, "content_type": <int: content_type> "content_content"<str: content>, "content_id": <int: content_id>},
+                {"sent_user_id": <str: user_id>, "sent_user_name": <str: user_name>, "content_type": <int: content_type> "content_content"<str: content>, "content_id": <int: content_id>},
+                {"sent_user_id": <str: user_id>, "sent_user_name": <str: user_name>, "content_type": <int: content_type> "content_content"<str: content>, "content_id": <int: content_id>}
                 ...
                 }
             }
         },
-        <talk_id>: {
-            "name": <talk_group_name>,
+        <int: talk_id>: {
+            "name": <str: talk_group_name>,
             "new": {
-                {"sent_user_id": <user_id>, "sent_user_name": <user_name>, "content_type": <content_type> "content_content"<content>, "content_id": <content_id>},
-                {"sent_user_id": <user_id>, "sent_user_name": <user_name>, "content_type": <content_type> "content_content"<content>, "content_id": <content_id>},
-                {"sent_user_id": <user_id>, "sent_user_name": <user_name>, "content_type": <content_type> "content_content"<content>, "content_id": <content_id>},
+                {"sent_user_id": <str: user_id>, "sent_user_name": <str: user_name>, "content_type": <int: content_type> "content_content"<str: content>, "content_id": <int: content_id>},
+                {"sent_user_id": <str: user_id>, "sent_user_name": <str: user_name>, "content_type": <int: content_type> "content_content"<str: content>, "content_id": <int: content_id>},
+                {"sent_user_id": <str: user_id>, "sent_user_name": <str: user_name>, "content_type": <int: content_type> "content_content"<str: content>, "content_id": <int: content_id>}
                 ...
                 }
-            },
-        ...
+            }
         },
         "message": "success"
     }
@@ -600,11 +600,11 @@
 #### request
 ```
 {"target": "/chat/make",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "group_name": <group_name>
+    "group_name": <str: group_name>
     }
 }
 ```
@@ -615,11 +615,11 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_talk_id": <0 or 1>,
-    "personal_chat": <0 or 1>,
-    "already_joined": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_talk_id": <int: 0 or 1>,
+    "personal_chat": <int: 0 or 1>,
+    "already_joined": <int: 0 or 1>
     }
 }
 ```
@@ -646,11 +646,11 @@
 #### request
 ```
 {"target": "/chat/join/self",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "target_group": <group_id>
+    "target_group": <int: group_id>
     }
 }
 ```
@@ -663,10 +663,10 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_talk_id": <0 or 1>,
-    "already_joined": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_talk_id": <int: 0 or 1>,
+    "already_joined": <int: 0 or 1>
     }
 }
 ```
@@ -695,13 +695,13 @@
 * "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
 ```
 {"target": "/chat/join/other",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "use_id": <0 or 1>,
-    "target_user_id": <user_id>,
-    "target_group": <group_id>
+    "use_id": <int: 0 or 1>,
+    "target_user_id": <str: user_id>,
+    "target_group": <int: group_id>
     }
 }
 ```
@@ -716,12 +716,12 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_user_id": <0 or 1>,
-    "invalid_talk_id": <0 or 1>,
-    "user_not_joined": <0 or 1>,
-    "already_joined": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_user_id": <int: 0 or 1>,
+    "invalid_talk_id": <int: 0 or 1>,
+    "user_not_joined": <int: 0 or 1>,
+    "already_joined": <int: 0 or 1>
     }
 }
 ```
@@ -748,11 +748,11 @@
 #### request
 ```
 {"target": "/chat/join/self",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "target_group": <group_id>
+    "target_group": <int: group_id>
     }
 }
 ```
@@ -765,10 +765,10 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_talk_id": <0 or 1>,
-    "not_joined": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_talk_id": <int: 0 or 1>,
+    "not_joined": <int: 0 or 1>
     }
 }
 ```
@@ -797,13 +797,13 @@
 * "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
 ```
 {"target": "/chat/join/other",
-"authenticated": <authenticated>,
-"id": <id>,
-"token": <token>,
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>,
 "content": {
-    "use_id": <0 or 1>,
-    "target_user_id": <user_id>,
-    "target_group": <group_id>
+    "use_id": <int: 0 or 1>,
+    "target_user_id": <int: user_id>,
+    "target_group": <str: group_id>
     }
 }
 ```
@@ -818,12 +818,12 @@
 ```
 {"error": 1,
 "content": {
-    "not_authenticated": <0 or 1>,
-    "invalid_verify": <0 or 1>,
-    "invalid_user_id": <0 or 1>,
-    "invalid_talk_id": <0 or 1>,
-    "user_not_joined": <0 or 1>,
-    "target_not_joined": <0 or 1>
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>,
+    "invalid_user_id": <int: 0 or 1>,
+    "invalid_talk_id": <int: 0 or 1>,
+    "user_not_joined": <int: 0 or 1>,
+    "target_not_joined": <int: 0 or 1>
     }
 }
 ```

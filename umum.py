@@ -339,12 +339,13 @@ def login():
                 "logged_id": result.id,
                 "logged_user_id": request_json["user_id"],
                 "logged_pass": request_json["password"],
+                "logged_name": result.name,
                 "token": token,
                 "message": "logged in successfully"
             }
         }))
     else:  # 失敗時
-        missing_id = not bool(User.query.filter(User.user_id.in_([request_json["user_id"]])).first())
+        missing_id = not bool(session.query(User).filter(User.user_id.in_([request_json["user_id"]])).first())
         return make_response(jsonify({
             "error": 1,
             "content": {
