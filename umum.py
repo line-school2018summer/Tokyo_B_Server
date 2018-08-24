@@ -24,7 +24,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 app.config['JSON_AS_ASCII'] = False
 
-today = datetime.datetime.today()
+today = datetime.date.today()
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
@@ -164,7 +164,7 @@ LIMEです。
 ご登録ありがとうございます。
 以下の認証コードをLIMEの画面内に入力いただきますと、登録が完了いたします。
 
-認証コード: 【{code}】 
+    認証コード: 【{code}】
 
 認証コードは {datetime.datetime.today().strftime("%Y/%m/%d 23:59")} まで有効です。
 心当たりのない方はこのメールを破棄してください。
@@ -252,9 +252,10 @@ def register():
                        code=code, email=request_json["email"])
 
     global today
-    if today < datetime.datetime.today():
+    if today < datetime.date.today():
         session.query(Mail_verify).delete()
-        today = datetime.datetime.today()
+        today = datetime.date.today()
+        print("ee")
 
     session.add(user)
     session.commit()
