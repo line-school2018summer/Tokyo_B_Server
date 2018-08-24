@@ -149,6 +149,7 @@ def verify_token(id_, token):
     except:
         return None
 
+
 def zero_or_go(his, talk):
     try:
         return his[str(talk.id)]
@@ -158,7 +159,7 @@ def zero_or_go(his, talk):
 
 def send_mail(code, email, name):
     text = f"""{name}様
-    
+
 LIMEです。
 ご登録ありがとうございます。
 以下の認証コードをLIMEの画面内に入力いただきますと、登録が完了いたします。
@@ -353,6 +354,7 @@ def login():
             }
         }))
 
+
 @app.route("/account/logout", methods=["GET", "POST"])
 def logout():
     if request.method == "GET":
@@ -383,6 +385,7 @@ def logout():
                                       "invalid_verify": invalid_verify
                                   }
                                   }))
+
 
 @app.route('/account/modify', methods=['GET', 'POST'])  # ユーザー情報変更のディレクトリです。
 def account_modify():
@@ -446,6 +449,7 @@ def account_modify():
                                   }
                                   }))
 
+
 @app.route("/friend/add", methods=["GET", "POST"])
 def add_friend():
     if request.method == "GET":
@@ -495,6 +499,7 @@ def add_friend():
                                       "message": "added successfully"
                                   }
                                   }))
+
 
 @app.route("/friend/remove", methods=["GET", "POST"])
 def remove_friend():
@@ -547,6 +552,7 @@ def remove_friend():
                                   }
                                   }))
 
+
 @app.route("/friend/list", methods=["GET", "POST"])
 def friends_list():
     if request.method == "GET":
@@ -580,6 +586,7 @@ def friends_list():
                                                   }
                                   }
                                   }))
+
 
 @app.route("/chat/get", methods=["GET", "POST"])
 def chat_get():
@@ -655,6 +662,7 @@ def chat_get():
                                       },
                                       }))
 
+
 @app.route("/chat/send", methods=["GET", "POST"])
 def chat_send():
     if request.method == "GET":
@@ -709,6 +717,7 @@ def chat_send():
                                   }
                                   }))
 
+
 @app.route("/chat/make", methods=["GET", "POST"])
 def chat_goup_make():
     if request.method == "GET":
@@ -730,6 +739,7 @@ def chat_goup_make():
                         "message": "sent successfully"
                     }
                     })
+
 
 @app.route("/chat/join/self", methods=["GET", "POST"])
 def chat_join():
@@ -771,6 +781,7 @@ def chat_join():
                                   }
                                   }))
 
+
 @app.route("/chat/leave/self", methods=["GET", "POST"])
 def chat_leave():
     if request.method == "GET":
@@ -810,6 +821,7 @@ def chat_leave():
                                       "message": "seccess"
                                   }
                                   }))
+
 
 @app.route("/chat/leave/other", methods=["GET", "POST"])
 def chat_leave_other():
@@ -867,6 +879,7 @@ def chat_leave_other():
                                   }
                                   }))
 
+
 @app.route("/friend/search", methods=["GET", "POST"])
 def friend_search():
     if request.method == "GET":
@@ -913,4 +926,4 @@ def friend_search():
 
 if __name__ == "__main__":
     app.secret_key = os.urandom(12)
-    app.run(debug=True, host='0.0.0.0', port=80, threaded=True)
+    app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
