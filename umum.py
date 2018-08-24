@@ -144,8 +144,10 @@ def verify_token(id_, token):
     if token == "logout":
         return None
     user = session.query(User).get(id_)
-    return user if user.token == token else None
-
+    try:
+        return user if user.token == token else None
+    except:
+        return None
 
 def zero_or_go(his, talk):
     try:
