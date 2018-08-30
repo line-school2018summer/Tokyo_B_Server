@@ -23,10 +23,8 @@ from sqlalchemy.orm.session import sessionmaker
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 app.config['JSON_AS_ASCII'] = False
-
-today = datetime.date.today()
-
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+
 db = SQLAlchemy(app)
 
 passw_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{6,12}\Z(?i)")  # passwordの認証のための正規表現です
@@ -110,6 +108,7 @@ class Mail_verify(Base):
     name = Column(String, nullable=False)
     password = Column(String, nullable=False)
     token = Column(String, nullable=False)
+    timestamp = Column(Integer, nullable=False)
 
 
 engine = create_engine('sqlite:///database.db', echo=False)
@@ -193,6 +192,12 @@ LIME
     server.quit()
 
 
+def reflesh_mail_verify(time):
+    session.query(Mail_verify).filter(Mail_verify.timestamp < time - 1800).delete()
+    session.commit()
+
+
+
 @app.route("/")  # ルートディレクトリです
 def main():
     return make_response(jsonify({"error": 0,
@@ -244,14 +249,13 @@ def register():
     code = "%04d" % random.randint(0, 9999)
     send_mail(code=code, email=request_json["email"], name=request_json["name"])
     token = secrets.token_hex()
+    timestamp = int(datetime.datetime.now().timestamp())
     user = Mail_verify(user_id=request_json["user_id"], name=request_json["name"],
                        password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token,
-                       code=code, email=request_json["email"])
+                       code=code, email=request_json["email"], timestamp=timestamp)
 
-    global today
-    if today < datetime.date.today():
-        session.query(Mail_verify).delete()
-        today = datetime.date.today()
+    if session.query(Mail_verify).first().timestamp < timestamp - 1800:
+        reflesh_mail_verify(timestamp)
 
     session.add(user)
     session.commit()
@@ -270,6 +274,11 @@ def register_verify():
                                       "content":
                                           {"message": "/account/register/verify[get]"}
                                       }))
+
+    timestamp = int(datetime.datetime.now().timestamp())
+    if session.query(Mail_verify).first().timestamp < timestamp - 1800:
+        reflesh_mail_verify(timestamp)
+
     invalid_id = 0
     authenticated = 0
     invalid_code = 0
@@ -652,7 +661,7 @@ def chat_get():
                                                                   request_json["content"]["talk_his"], talk)).all()]
                                                   }
                                               } for talk in user.talk_groups.filter(
-                                              Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
+                                                  Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
                                           }
                                       },
                                       }))
