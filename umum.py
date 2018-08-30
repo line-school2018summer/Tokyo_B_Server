@@ -165,7 +165,7 @@ LIMEです。
 
     認証コード: 【{code}】
 
-認証コードは {datetime.datetime.today().strftime("%Y/%m/%d 23:59")} まで有効です。
+認証コードは30分後の {(datetime.datetime.today()+datetime.timedelta(0,1800)).strftime("%Y/%m/%d %H:%M")} まで有効です。
 心当たりのない方はこのメールを破棄してください。
 
 LIME
@@ -253,9 +253,11 @@ def register():
     user = Mail_verify(user_id=request_json["user_id"], name=request_json["name"],
                        password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token,
                        code=code, email=request_json["email"], timestamp=timestamp)
-
-    if session.query(Mail_verify).first().timestamp < timestamp - 1800:
-        reflesh_mail_verify(timestamp)
+    try:
+        if session.query(Mail_verify).first().timestamp < timestamp - 1800:
+            reflesh_mail_verify(timestamp)
+    except AttributeError:
+        pass
 
     session.add(user)
     session.commit()
@@ -276,8 +278,12 @@ def register_verify():
                                       }))
 
     timestamp = int(datetime.datetime.now().timestamp())
-    if session.query(Mail_verify).first().timestamp < timestamp - 1800:
-        reflesh_mail_verify(timestamp)
+
+    try:
+        if session.query(Mail_verify).first().timestamp < timestamp - 1800:
+            reflesh_mail_verify(timestamp)
+    except AttributeError:
+        pass
 
     invalid_id = 0
     authenticated = 0
