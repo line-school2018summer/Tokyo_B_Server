@@ -173,7 +173,7 @@ LIME
     smtp_host = 'smtp.gmail.com'
     smtp_port = 587
     from_email = 'do.not.reply.lime@gmail.com'
-    to_email = 'gey3933@gmail.com'
+    to_email = email
     username = 'do.not.reply.lime@gmail.com'
     password = open("password.txt", "r").read()
 
@@ -320,6 +320,7 @@ def register_verify():
                                   "content": {
                                       "logged_id": user.id,
                                       "logged_user_id": user.user_id,
+                                      "logged_name": user.name,
                                       "token": user.token,
                                       "message": "successful registration"
                                   }
