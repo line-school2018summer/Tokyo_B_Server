@@ -356,7 +356,7 @@ def login():
             }
         }))
     else:  # 失敗時
-        missing_id = not bool(session.query(User).filter(User.user_id.in_([request_json["user_id"]])).first())
+        missing_id = int(not bool(session.query(User).filter(User.user_id.in_([request_json["user_id"]])).first()))
         return make_response(jsonify({
             "error": 1,
             "content": {
