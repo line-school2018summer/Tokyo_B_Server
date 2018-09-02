@@ -23,10 +23,8 @@ from sqlalchemy.orm.session import sessionmaker
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 app.config['JSON_AS_ASCII'] = False
-
-today = datetime.date.today()
-
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+
 db = SQLAlchemy(app)
 
 passw_re = re.compile("\A(?=.*?[a-z])(?=.*?\d)[a-z\d]{6,12}\Z(?i)")  # passwordの認証のための正規表現です
@@ -110,6 +108,7 @@ class Mail_verify(Base):
     name = Column(String, nullable=False)
     password = Column(String, nullable=False)
     token = Column(String, nullable=False)
+    timestamp = Column(Integer, nullable=False)
 
 
 engine = create_engine('sqlite:///database.db', echo=False)
@@ -166,7 +165,7 @@ LIMEです。
 
     認証コード: 【{code}】
 
-認証コードは {datetime.datetime.today().strftime("%Y/%m/%d 23:59")} まで有効です。
+認証コードは30分後の {(datetime.datetime.today()+datetime.timedelta(0,1800)).strftime("%Y/%m/%d %H:%M")} まで有効です。
 心当たりのない方はこのメールを破棄してください。
 
 LIME
@@ -174,7 +173,7 @@ LIME
     smtp_host = 'smtp.gmail.com'
     smtp_port = 587
     from_email = 'do.not.reply.lime@gmail.com'
-    to_email = 'gey3933@gmail.com'
+    to_email = email
     username = 'do.not.reply.lime@gmail.com'
     password = open("password.txt", "r").read()
 
@@ -191,6 +190,12 @@ LIME
     server.login(username, password)
     server.send_message(msg)
     server.quit()
+
+
+def reflesh_mail_verify(time):
+    session.query(Mail_verify).filter(Mail_verify.timestamp < time - 1800).delete()
+    session.commit()
+
 
 
 @app.route("/")  # ルートディレクトリです
@@ -244,14 +249,15 @@ def register():
     code = "%04d" % random.randint(0, 9999)
     send_mail(code=code, email=request_json["email"], name=request_json["name"])
     token = secrets.token_hex()
+    timestamp = int(datetime.datetime.now().timestamp())
     user = Mail_verify(user_id=request_json["user_id"], name=request_json["name"],
                        password=str(hashlib.sha256(b"%a" % str(request_json["password"])).digest()), token=token,
-                       code=code, email=request_json["email"])
-
-    global today
-    if today < datetime.date.today():
-        session.query(Mail_verify).delete()
-        today = datetime.date.today()
+                       code=code, email=request_json["email"], timestamp=timestamp)
+    try:
+        if session.query(Mail_verify).first().timestamp < timestamp - 1800:
+            reflesh_mail_verify(timestamp)
+    except AttributeError:
+        pass
 
     session.add(user)
     session.commit()
@@ -270,6 +276,15 @@ def register_verify():
                                       "content":
                                           {"message": "/account/register/verify[get]"}
                                       }))
+
+    timestamp = int(datetime.datetime.now().timestamp())
+
+    try:
+        if session.query(Mail_verify).first().timestamp < timestamp - 1800:
+            reflesh_mail_verify(timestamp)
+    except AttributeError:
+        pass
+
     invalid_id = 0
     authenticated = 0
     invalid_code = 0
@@ -305,6 +320,7 @@ def register_verify():
                                   "content": {
                                       "logged_id": user.id,
                                       "logged_user_id": user.user_id,
+                                      "logged_name": user.name,
                                       "token": user.token,
                                       "message": "successful registration"
                                   }
@@ -340,7 +356,7 @@ def login():
             }
         }))
     else:  # 失敗時
-        missing_id = not bool(session.query(User).filter(User.user_id.in_([request_json["user_id"]])).first())
+        missing_id = int(not bool(session.query(User).filter(User.user_id.in_([request_json["user_id"]])).first()))
         return make_response(jsonify({
             "error": 1,
             "content": {
@@ -652,7 +668,7 @@ def chat_get():
                                                                   request_json["content"]["talk_his"], talk)).all()]
                                                   }
                                               } for talk in user.talk_groups.filter(
-                                              Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
+                                                  Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
                                           }
                                       },
                                       }))
