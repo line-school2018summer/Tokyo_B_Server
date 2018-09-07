@@ -486,7 +486,6 @@ def add_friend():
     if request_json["use_id"]:
         target = session.query(User).get(request_json["target_id"])
     else:
-        print([request_json["target_id"]])
         target = session.query(User).filter(User.user_id.in_([request_json["target_id"]])).first()
     if not target:
         unexist_id = 1
