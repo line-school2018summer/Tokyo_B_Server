@@ -404,12 +404,12 @@
 {"error": 0,
 "content": {
     "message": "friends_list",
-    "friends":{
-        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
-        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
-        <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
+    "friends":[
+        {<int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>}},
+        {<int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>}},
+        {<int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>}},
         ...
-        }
+        ]
     }
 }
 ```
