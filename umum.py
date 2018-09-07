@@ -592,9 +592,9 @@ def friends_list():
     return make_response(jsonify({"error": 0,
                                   "content": {
                                       "message": "friends_list",
-                                      "friends": {g.id: {"user_id": str(g.user_id),
-                                                         "name": str(g.name)} for g in user.friends
-                                                  }
+                                      "friends": [{g.id: {"user_id": str(g.user_id),
+                                                         "name": str(g.name)}} for g in user.friends
+                                                  ]
                                   }
                                   }))
 
@@ -912,7 +912,7 @@ def chat_join_other():
     invalid_talk_id = 0
     user_not_joined = 0
     already_joined = 0
-    
+
     user = verify_token(request_json["id"], request_json["token"])
     if request_json["content"]["use_id"]:
         target_user = session.query(User).get(request_json["content"]["target_user_id"])
