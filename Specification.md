@@ -405,9 +405,9 @@
 "content": {
     "message": "friends_list",
     "friends":[
-        {<int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>}},
-        {<int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>}},
-        {<int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>}},
+        {<int: id>, <str: user_id>, "name": <str: name>},
+        {<int: id>, <str: user_id>, "name": <str: name>},
+        {<int: id>, <str: user_id>, "name": <str: name>},
         ...
         ]
     }
@@ -620,10 +620,7 @@
 {"error": 1,
 "content": {
     "not_authenticated": <int: 0 or 1>,
-    "invalid_verify": <int: 0 or 1>,
-    "invalid_talk_id": <int: 0 or 1>,
-    "personal_chat": <int: 0 or 1>,
-    "already_joined": <int: 0 or 1>
+    "invalid_verify": <int: 0 or 1>
     }
 }
 ```
@@ -631,6 +628,7 @@
 ```
 {"error": 0,
 "content": {
+    "talk_id": <int: talk.id>,
     "message": "success"
     }
 }
@@ -654,7 +652,7 @@
 "id": <int: id>,
 "token": <str: token>,
 "content": {
-    "target_group": <int: group_id>
+    "target_group": <int: talk_id>
     }
 }
 ```
@@ -705,7 +703,7 @@
 "content": {
     "use_id": <int: 0 or 1>,
     "target_user_id": <str: user_id>,
-    "target_group": <int: group_id>
+    "target_group": <int: talk_id>
     }
 }
 ```
@@ -744,19 +742,19 @@
 ```
 {"error": 0,
 "content": {
-    "message": "/chat/join/self[get]"
+    "message": "/chat/leave/self[get]"
     }
 }
 ```
 ### POST
 #### request
 ```
-{"target": "/chat/join/self",
+{"target": "/chat/leave/self",
 "authenticated": <int: authenticated>,
 "id": <int: id>,
 "token": <str: token>,
 "content": {
-    "target_group": <int: group_id>
+    "target_group": <int: talk_id>
     }
 }
 ```
@@ -792,7 +790,7 @@
 ```
 {"error": 0,
 "content": {
-    "message": "/chat/join/other[get]"
+    "message": "/chat/leave/other[get]"
     }
 }
 ```
@@ -800,14 +798,14 @@
 #### request
 * "content"-"use_id"が1の場合、targetユーザの特定にはUser.idを用います。そうでない場合、User.user_idを用います。
 ```
-{"target": "/chat/join/other",
+{"target": "/chat/leave/other",
 "authenticated": <int: authenticated>,
 "id": <int: id>,
 "token": <str: token>,
 "content": {
     "use_id": <int: 0 or 1>,
     "target_user_id": <str/int: user_id>,
-    "target_group": <str: group_id>
+    "target_group": <str: talk_id>
     }
 }
 ```
@@ -853,12 +851,12 @@
 ### POST
 #### request
 ```
-{"target": "/chat/join/other",
+{"target": "/chat/member",
 "authenticated": <int: authenticated>,
 "id": <int: id>,
 "token": <str: token>,
 "content": {
-    "target_group": <str: group_id>
+    "target_group": <str: talk_id>
     }
 }
 ```
@@ -866,14 +864,14 @@
 * エラー有りの場合
     * ログインしていない状態での"/caht/mamber"へのpostは認められません。
     * 合致しない"id", "token"でのpostは認められません。
-    * 存在しない"group_id"は認められません。
+    * 存在しない"talk_id"は認められません。
     * 参加していないグループは"content"-"target_group"として認められません。
 ```
 {"error": 1,
 "content": {
     "not_authenticated": <int: 0 or 1>,
     "invalid_verify": <int: 0 or 1>,
-    "invalid_group_id": <int: 0 or 1>,
+    "invalid_talk_id": <int: 0 or 1>,
     "user_not_joined": <int: 0 or 1>
     }
 }
@@ -887,6 +885,52 @@
         <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
         <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
         <int: id>: {"user_id": <int: str(user_id)>, "name": <int: str(name)>},
+        ...
+        }
+    }
+}
+```
+
+# /chat/list [get, post]
+---
+### GET
+```
+{"error": 0,
+"content": {
+    "message": "/chat/list[get]"
+    }
+}
+```
+### POST
+#### request
+```
+{"target": "/chat/list",
+"authenticated": <int: authenticated>,
+"id": <int: id>,
+"token": <str: token>
+}
+```
+#### response
+* エラー有りの場合
+    * ログインしていない状態での"/caht/mamber"へのpostは認められません。
+    * 合致しない"id", "token"でのpostは認められません。
+```
+{"error": 1,
+"content": {
+    "not_authenticated": <int: 0 or 1>,
+    "invalid_verify": <int: 0 or 1>
+    }
+}
+```
+* エラーなしの場合
+```
+{"error": 0,
+"content": {
+    "message": "group_list",
+    "groups":{
+        <str: talk_id>: <str: group_name>,
+        <str: talk_id>: <str: group_name>,
+        <str: talk_id>: <str: group_name>,
         ...
         }
     }

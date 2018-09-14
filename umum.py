@@ -24,6 +24,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
 app.config['JSON_AS_ASCII'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
 
 db = SQLAlchemy(app)
 
@@ -134,7 +135,7 @@ def page_not_found(e):
 
 
 def valid_auth(user_id, pass_):  # idとpass_に合致するユーザーが存在するか検証し、存在するなら返します。
-    return User.query.filter(User.user_id.in_([user_id]),
+    return session.query(User).filter(User.user_id.in_([user_id]),
                              User.password.in_(
                                  [str(hashlib.sha256(b"%a" % str(pass_)).digest())])).first()
 
@@ -195,7 +196,6 @@ LIME
 def reflesh_mail_verify(time):
     session.query(Mail_verify).filter(Mail_verify.timestamp < time - 1800).delete()
     session.commit()
-
 
 
 @app.route("/")  # ルートディレクトリです
@@ -362,7 +362,7 @@ def login():
             "content": {
                 "authenticated": request_json["authenticated"],
                 "missing_id": missing_id,
-                "invalid_password": not missing_id
+                "invalid_password": int(not missing_id)
             }
         }))
 
@@ -423,7 +423,8 @@ def account_modify():
     if not user:
         invalid_verify = 1
     if not (invalid_verify or not_authenticated):
-        if session.query(User).filter(User.user_id.in_([request_json["modify"]["user_id"]])).first():
+        us = session.query(User).filter(User.user_id.in_([request_json["modify"]["user_id"]])).first()
+        if us and us != user:
             exist_id = 1
         if not id_re.match(request_json["modify"]["user_id"]) and request_json["modify"]["user_id"] != "":
             bad_id = 1
@@ -537,7 +538,7 @@ def remove_friend():
     if request_json["use_id"]:
         target = session.query(User).get(request_json["target_id"])
     else:
-        target = session.query(User).filter(User.uesr_id.in_(request_json["target_id"])).first()
+        target = session.query(User).filter(User.user_id.in_([request_json["target_id"]])).first()
     if not target:
         unexist_id = 1
     if user == target:
@@ -592,9 +593,9 @@ def friends_list():
     return make_response(jsonify({"error": 0,
                                   "content": {
                                       "message": "friends_list",
-                                      "friends": [{g.id: {"user_id": str(g.user_id),
-                                                         "name": str(g.name)}} for g in user.friends
-                                                  ]
+                                      "friends": [{"user_id": str(g.user_id),
+                                                          "name": str(g.name), "id": g.id} for g in user.friends]
+
                                   }
                                   }))
 
@@ -668,7 +669,7 @@ def chat_get():
                                                                   request_json["content"]["talk_his"], talk)).all()]
                                                   }
                                               } for talk in user.talk_groups.filter(
-                                                  Talk_group.id.in_(request_json["content"]["talk_his"].keys())).all()
+                                              Talk_group.id.in_([request_json["content"]["talk_his"].keys()])).all()
                                           }
                                       },
                                       }))
@@ -744,7 +745,20 @@ def chat_goup_make():
                                       }))
 
     request_json = request.get_json()
+    not_authenticated = 0
+    invalid_verify = 0
     user = verify_token(request_json["id"], request_json["token"])
+    if not request_json["authenticated"]:
+        not_authenticated = 1
+    if not user:
+        invalid_verify = 1
+    if not_authenticated or invalid_user:
+        return make_response(jsonify({"error": 1,
+				"content": {
+    				"not_authenticated": not_authenticated,
+    				"invalid_verify": invalid_verify
+    				}
+			     }))
     talk = Talk_group(name=request_json["content"]["group_name"])
     session.add(talk)
     user.talk_groups.append(talk)
@@ -752,7 +766,7 @@ def chat_goup_make():
     return jsonify({"error": 0,
                     "content": {
                         "talk_id": talk.id,
-                        "message": "sent successfully"
+                        "message": "success"
                     }
                     })
 
@@ -971,7 +985,6 @@ def friend_search():
     if request_json["content"]["use_id"]:
         target_user = session.query(User).get(request_json["content"]["target_user_id"])
     else:
-        print([request_json["content"]["target_user_id"]])
         target_user = session.query(User).filter(
             User.user_id.in_([request_json["content"]["target_user_id"]])).first()
 
@@ -1010,7 +1023,7 @@ def member_list():
     request_json = request.get_json()
     not_authenticated = 0
     invalid_verify = 0
-    invalid_group_id = 0
+    invalid_talk_id = 0
     not_joined = 0
 
     user = verify_token(request_json["id"], request_json["token"])
@@ -1021,16 +1034,16 @@ def member_list():
         invalid_verify = 1
     target_group = session.query(Talk_group).get(request_json["content"]["target_group"])
     if not target_group:
-        invalid_group_id = 1
+        invalid_talk_id = 1
     else:
         if user not in target_group.users:
             not_joined = 1
-    if not_authenticated or invalid_verify or invalid_group_id or not_joined:
+    if not_authenticated or invalid_verify or invalid_talk_id or not_joined:
         return make_response(jsonify({"error": 1,
                                       "content": {
                                           "not_authenticated": not_authenticated,
                                           "invalid_verify": invalid_verify,
-                                          "invalid_group_id": invalid_group_id,
+                                          "invalid_talk_id": invalid_talk_id,
                                           "user_not_joined": not_joined
                                       }
                                       }))
@@ -1041,6 +1054,38 @@ def member_list():
                                           "user_id": u.user_id,
                                           "name": u.name
                                       } for u in target_group.users
+                                  }
+                                  }))
+
+
+@app.route("/chat/list", methods=["GET", "POST"])
+def chat_list():
+    if request.method == "GET":
+        return make_response(jsonify({"error": 0,
+                                      "content": {
+                                          "message": "/chat/list[get]"
+                                      }
+                                      }))
+    request_json = request.get_json()
+    not_authenticated = 0
+    invalid_verify = 0
+    if not request_json["anthenticated"]:
+        not_authenticated = 1
+    user = verify_token(request_json["id"], request_json["token"])
+    if not user:
+        invalid_verify = 1
+    if not_authenticated or invalid_verify:
+        return make_response(jsonify({"error": 1,
+                                      "content": {
+                                          "not_authenticated": not_authenticated,
+                                          "invalid_verify": invalid_verify
+                                      }}))
+    return make_response(jsonify({"error": 0,
+                                  "content": {
+                                      "message": "group_list",
+                                      "groups": {
+                                          g.id: g.name for g in user.talk_groups
+                                      }
                                   }
                                   }))
 
